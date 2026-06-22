@@ -42,5 +42,14 @@ CREATE TABLE card_strings (
     FOREIGN KEY (card_key) REFERENCES cards(card_key) ON DELETE CASCADE
 );
 
+
+-- 编辑器保存鹏洛客初始忠诚与战役布防值。Unity 当前版本可以安全忽略此表。
+CREATE TABLE card_characteristics (
+    card_key TEXT PRIMARY KEY,
+    loyalty INTEGER NOT NULL DEFAULT 0,
+    defense INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (card_key) REFERENCES cards(card_key) ON DELETE CASCADE
+);
+
 CREATE INDEX cards_name_index ON cards(name);
 CREATE INDEX cards_printing_index ON cards(set_code, collector_number);

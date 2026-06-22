@@ -95,12 +95,32 @@ FROM cards WHERE card_key = ? LIMIT 1;", row =>
         }, cardKey);
 
         if (card == null) throw new KeyNotFoundException($"找不到卡牌 {cardKey}。");
+        CardRecord loadedCard = card;
+
+        bool hasCharacteristics = false;
+        database.Query(@"
+SELECT loyalty, defense
+FROM card_characteristics WHERE card_key = ? LIMIT 1;", row =>
+        {
+            hasCharacteristics = true;
+            loadedCard.Loyalty = row.Int32(0);
+            loadedCard.Defense = row.Int32(1);
+        }, cardKey);
+
+        // Version 1 of the editor stored a battle-only card's defense value in toughness.
+        // Preserve that value when opening a database that has not yet saved editor characteristics.
+        if (!hasCharacteristics
+            && loadedCard.Types.HasFlag(CardTypeFlags.Battle)
+            && !loadedCard.Types.HasFlag(CardTypeFlags.Creature))
+        {
+            loadedCard.Defense = loadedCard.Toughness;
+        }
 
         database.Query(@"
 SELECT effect_order, trigger, effect_key, parameters_json
 FROM card_effects WHERE card_key = ? ORDER BY effect_order;", row =>
         {
-            card.Effects.Add(new CardEffectRecord
+            loadedCard.Effects.Add(new CardEffectRecord
             {
                 Order = row.Int32(0),
                 Trigger = row.String(1),
@@ -113,14 +133,14 @@ FROM card_effects WHERE card_key = ? ORDER BY effect_order;", row =>
 SELECT string_index, text
 FROM card_strings WHERE card_key = ? ORDER BY string_index;", row =>
         {
-            card.Strings.Add(new CardStringRecord
+            loadedCard.Strings.Add(new CardStringRecord
             {
                 Index = row.Int32(0),
                 Text = row.String(1)
             });
         }, cardKey);
 
-        return card;
+        return loadedCard;
     }
 
     public void Save(CardRecord card)
@@ -156,6 +176,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
                 // 子表没有 ON UPDATE CASCADE。先暂存于 CardRecord，再删除并在更新后恢复。
                 database.ExecuteNonQuery("DELETE FROM card_effects WHERE card_key = ?;", card.OriginalCardKey);
                 database.ExecuteNonQuery("DELETE FROM card_strings WHERE card_key = ?;", card.OriginalCardKey);
+                database.ExecuteNonQuery("DELETE FROM card_characteristics WHERE card_key = ?;", card.OriginalCardKey);
 
                 int changed = database.ExecuteNonQuery(@"
 UPDATE cards SET card_key = ?, card_id = ?, oracle_id = ?, set_code = ?, collector_number = ?,
@@ -180,6 +201,13 @@ WHERE card_key = ?;",
                 if (changed != 1)
                     throw new InvalidOperationException("保存失败：原卡牌记录不存在。");
             }
+
+            database.ExecuteNonQuery(@"
+INSERT INTO card_characteristics(card_key, loyalty, defense)
+VALUES (?, ?, ?);",
+                newKey,
+                card.Loyalty,
+                card.Defense);
 
             foreach (CardEffectRecord effect in card.Effects.OrderBy(effect => effect.Order))
             {
@@ -225,7 +253,8 @@ VALUES (?, ?, ?);",
             SchemaVersion = ReadSchemaVersion(),
             CardCount = database.ScalarInt("SELECT COUNT(*) FROM cards;"),
             EffectCount = database.ScalarInt("SELECT COUNT(*) FROM card_effects;"),
-            StringCount = database.ScalarInt("SELECT COUNT(*) FROM card_strings;")
+            StringCount = database.ScalarInt("SELECT COUNT(*) FROM card_strings;"),
+            CharacteristicCount = database.ScalarInt("SELECT COUNT(*) FROM card_characteristics;")
         };
 
         if (result.SchemaVersion != SupportedSchemaVersion)
@@ -267,6 +296,13 @@ CREATE TABLE IF NOT EXISTS card_strings (
     text TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (card_key, string_index),
     FOREIGN KEY (card_key) REFERENCES cards(card_key) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS card_characteristics (
+    card_key TEXT PRIMARY KEY,
+    loyalty INTEGER NOT NULL DEFAULT 0,
+    defense INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (card_key) REFERENCES cards(card_key) ON DELETE CASCADE
 );");
     }
 
@@ -288,11 +324,13 @@ CREATE TABLE IF NOT EXISTS card_strings (
         if (card.SetCode.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
             throw new InvalidDataException("系列代号包含不能用于图片目录的字符。");
         if (string.IsNullOrWhiteSpace(card.CollectorNumber))
-            throw new InvalidDataException("收藏编号不能为空。");
+            throw new InvalidDataException("卡图编号不能为空。");
         if (card.CollectorNumber.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
-            throw new InvalidDataException("收藏编号包含不能用于图片文件名的字符。");
+            throw new InvalidDataException("卡图编号包含不能用于图片文件名的字符。");
         if (card.Types == CardTypeFlags.None)
             throw new InvalidDataException("至少选择一种卡牌类型。");
+        if (card.Types == CardTypeFlags.Kindred)
+            throw new InvalidDataException("亲族不能单独存在，必须同时选择另一种卡牌类型。");
 
         var effectOrders = new HashSet<int>();
         foreach (CardEffectRecord effect in card.Effects)

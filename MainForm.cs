@@ -11,19 +11,31 @@ internal sealed class MainForm : Form
     private readonly Label cardCountLabel = new();
     private readonly Label cardHeaderTitle = new();
     private readonly Label cardHeaderMeta = new();
-    private readonly TabControl editorTabs = new();
+    private readonly Panel editorPageHost = new();
+    private readonly List<Control> editorPages = new();
+    private readonly List<Button> editorPageButtons = new();
+    private int selectedEditorPage;
 
     private readonly NumericUpDown cardIdInput = new();
     private readonly TextBox cardNameInput = new();
     private readonly TextBox oracleIdInput = new();
     private readonly TextBox setCodeInput = new();
     private readonly TextBox collectorInput = new();
-    private readonly CheckedListBox cardTypesInput = new();
+    private readonly FlowLayoutPanel cardTypesPanel = new();
+    private readonly List<TypeToggle> cardTypeToggles = new();
     private readonly TextBox manaCostInput = new();
     private readonly NumericUpDown powerInput = new();
     private readonly NumericUpDown toughnessInput = new();
+    private readonly NumericUpDown loyaltyInput = new();
+    private readonly NumericUpDown defenseInput = new();
     private readonly TextBox rulesTextInput = new();
-    private readonly CheckBox enabledInput = new();
+    private readonly ToolTip fieldToolTip = new();
+    private readonly FlowLayoutPanel characteristicFields = new();
+    private Control? powerStatHost;
+    private Control? toughnessStatHost;
+    private Control? loyaltyStatHost;
+    private Control? defenseStatHost;
+    private Label? noCharacteristicsLabel;
 
     private readonly DataGridView stringsGrid = new();
 
@@ -88,9 +100,13 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             FixedPanel = FixedPanel.Panel1,
+            // SplitContainer validates SplitterDistance against its current Size.
+            // Give it a realistic design-time size before applying the panel limits;
+            // otherwise the default 150px width can make the form crash at startup.
+            Size = new Size(1200, 700),
             SplitterDistance = 330,
             Panel1MinSize = 270,
-            Panel2MinSize = 720,
+            Panel2MinSize = 650,
             SplitterWidth = 6,
             BackColor = EditorTheme.Border
         };
@@ -167,7 +183,7 @@ internal sealed class MainForm : Form
         header.Controls.Add(title);
 
         searchBox.Dock = DockStyle.Fill;
-        searchBox.PlaceholderText = "搜索名称、ID、系列或类型";
+        searchBox.PlaceholderText = "搜索卡名、系列、卡图编号或类型";
         searchBox.Margin = new Padding(0, 5, 0, 7);
 
         cardList.Dock = DockStyle.Fill;
@@ -177,9 +193,8 @@ internal sealed class MainForm : Form
         cardList.MultiSelect = false;
         cardList.HeaderStyle = ColumnHeaderStyle.Nonclickable;
         cardList.OwnerDraw = true;
-        cardList.Columns.Add("ID", 58);
-        cardList.Columns.Add("名称", 150);
-        cardList.Columns.Add("印刷", 90);
+        cardList.Columns.Add("名称", 160);
+        cardList.Columns.Add("系列 / 卡图编号", 110);
 
         var footer = new Label
         {
@@ -204,67 +219,126 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 2,
+            RowCount = 3,
             BackColor = EditorTheme.Window
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 70));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var header = new Panel
         {
             Dock = DockStyle.Fill,
             BackColor = EditorTheme.Surface,
-            Padding = new Padding(18, 8, 18, 8)
+            Padding = new Padding(20, 9, 20, 8),
+            Margin = new Padding(0, 0, 0, 6)
         };
-        cardHeaderTitle.Dock = DockStyle.Top;
-        cardHeaderTitle.Height = 30;
+        var headerLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = EditorTheme.Surface,
+            Margin = new Padding(0)
+        };
+        headerLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+        headerLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        cardHeaderTitle.Dock = DockStyle.Fill;
         cardHeaderTitle.Font = new Font("Segoe UI", 14f, FontStyle.Bold);
         cardHeaderTitle.ForeColor = EditorTheme.Text;
         cardHeaderTitle.TextAlign = ContentAlignment.MiddleLeft;
+        cardHeaderTitle.AutoEllipsis = true;
+
         cardHeaderMeta.Dock = DockStyle.Fill;
         cardHeaderMeta.ForeColor = EditorTheme.Muted;
         cardHeaderMeta.TextAlign = ContentAlignment.MiddleLeft;
-        header.Controls.Add(cardHeaderMeta);
-        header.Controls.Add(cardHeaderTitle);
+        cardHeaderMeta.AutoEllipsis = true;
 
-        editorTabs.Dock = DockStyle.Fill;
-        editorTabs.DrawMode = TabDrawMode.OwnerDrawFixed;
-        editorTabs.SizeMode = TabSizeMode.Fixed;
-        editorTabs.ItemSize = new Size(150, 38);
-        editorTabs.Padding = new Point(18, 5);
-        editorTabs.Controls.Add(BuildBasicTab());
-        editorTabs.Controls.Add(BuildStringsTab());
-        editorTabs.Controls.Add(BuildLuaTab());
+        headerLayout.Controls.Add(cardHeaderTitle, 0, 0);
+        headerLayout.Controls.Add(cardHeaderMeta, 0, 1);
+        header.Controls.Add(headerLayout);
+
+        var navigation = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = EditorTheme.Surface,
+            Padding = new Padding(8, 5, 8, 5),
+            Margin = new Padding(0)
+        };
+        var navigationButtons = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Left,
+            Width = 474,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            BackColor = EditorTheme.Surface,
+            Margin = new Padding(0),
+            Padding = new Padding(0)
+        };
+        navigation.Controls.Add(navigationButtons);
+
+        editorPageHost.Dock = DockStyle.Fill;
+        editorPageHost.BackColor = EditorTheme.Window;
+        editorPageHost.Padding = new Padding(0);
+
+        editorPages.Clear();
+        editorPageButtons.Clear();
+        editorPages.Add(BuildBasicTab());
+        editorPages.Add(BuildStringsTab());
+        editorPages.Add(BuildLuaTab());
+
+        string[] pageNames = { "基本信息", "提示文本", "Lua 脚本" };
+        for (int i = 0; i < editorPages.Count; i++)
+        {
+            int pageIndex = i;
+            Control page = editorPages[i];
+            page.Dock = DockStyle.Fill;
+            page.Visible = false;
+            editorPageHost.Controls.Add(page);
+
+            Button button = CreateEditorPageButton(pageNames[i], () => ShowEditorPage(pageIndex));
+            editorPageButtons.Add(button);
+            navigationButtons.Controls.Add(button);
+        }
 
         layout.Controls.Add(header, 0, 0);
-        layout.Controls.Add(editorTabs, 0, 1);
+        layout.Controls.Add(navigation, 0, 1);
+        layout.Controls.Add(editorPageHost, 0, 2);
+        ShowEditorPage(0);
         return layout;
     }
 
-    private TabPage BuildBasicTab()
+    private Control BuildBasicTab()
     {
-        var tab = new TabPage("基本信息")
+        var page = new Panel
         {
+            Dock = DockStyle.Fill,
             BackColor = EditorTheme.Window,
-            Padding = new Padding(12)
+            AutoScroll = true,
+            Padding = new Padding(12, 10, 12, 12)
         };
 
         var layout = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             ColumnCount = 1,
             RowCount = 3,
-            BackColor = EditorTheme.Window
+            BackColor = EditorTheme.Window,
+            Margin = new Padding(0)
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 160));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 190));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 188));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 354));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 410));
 
         layout.Controls.Add(CreateSection("卡牌标识", BuildIdentityFields()), 0, 0);
         layout.Controls.Add(CreateSection("游戏数据", BuildGameplayFields()), 0, 1);
         layout.Controls.Add(CreateSection("规则文本", BuildRulesEditor()), 0, 2);
-        tab.Controls.Add(layout);
-        return tab;
+        page.Controls.Add(layout);
+        return page;
     }
 
     private Control BuildIdentityFields()
@@ -272,45 +346,180 @@ internal sealed class MainForm : Form
         var fields = CreateFieldsTable(3);
         cardIdInput.Minimum = 1;
         cardIdInput.Maximum = int.MaxValue;
-        AddField(fields, "内部 ID", cardIdInput, 0, 0);
-        AddField(fields, "卡名", cardNameInput, 0, 2);
-        AddField(fields, "Oracle ID", oracleIdInput, 1, 0);
-        AddField(fields, "系列代号", setCodeInput, 1, 2);
-        AddField(fields, "收藏编号", collectorInput, 2, 0);
 
-        enabledInput.Text = "启用此卡牌";
-        enabledInput.Checked = true;
-        enabledInput.AutoSize = true;
-        var enabledHost = new Panel { Dock = DockStyle.Fill, BackColor = EditorTheme.Surface };
-        enabledInput.Location = new Point(0, 8);
-        enabledHost.Controls.Add(enabledInput);
-        AddField(fields, "状态", enabledHost, 2, 2);
+        cardNameInput.PlaceholderText = "例如 Training Island";
+        oracleIdInput.PlaceholderText = "同一规则卡牌的共享标识，可留空";
+        setCodeInput.PlaceholderText = "例如 MTGB";
+        collectorInput.PlaceholderText = "例如 1、45a";
+
+        AddField(fields, "卡名", cardNameInput, 0, 0, 3);
+        AddField(fields, "系列代号", setCodeInput, 1, 0);
+        AddField(fields, "卡图编号", collectorInput, 1, 2);
+        AddField(fields, "Oracle ID", oracleIdInput, 2, 0, 3);
+
+        fieldToolTip.SetToolTip(setCodeInput, "卡图目录名，例如 CardImages/MTGB/");
+        fieldToolTip.SetToolTip(collectorInput, "系列内的卡图文件编号，例如 MTGB/1.png 中的 1");
+        fieldToolTip.SetToolTip(oracleIdInput, "用于关联同一张规则卡牌的不同印刷版本；自制卡可暂时留空。");
         return fields;
     }
 
     private Control BuildGameplayFields()
     {
-        var fields = CreateFieldsTable(3);
-        fields.RowStyles.Clear();
-        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-        fields.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        var fields = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 3,
+            BackColor = EditorTheme.Surface,
+            Margin = new Padding(0)
+        };
+        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 112));
+        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
+        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 100));
+        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 136));
 
-        powerInput.Minimum = toughnessInput.Minimum = -999;
-        powerInput.Maximum = toughnessInput.Maximum = 999;
+        manaCostInput.PlaceholderText = "例如 {2}{U}、{G/W}";
+        AddSingleField(fields, "法术力费用", manaCostInput, 0);
 
-        AddField(fields, "法术力费用", manaCostInput, 0, 0, 3);
-        AddField(fields, "力量", powerInput, 1, 0);
-        AddField(fields, "防御", toughnessInput, 1, 2);
+        var typeHost = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = EditorTheme.Surface,
+            Margin = new Padding(0, 4, 10, 4)
+        };
+        typeHost.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        typeHost.RowStyles.Add(new RowStyle(SizeType.Absolute, 25));
 
-        cardTypesInput.CheckOnClick = true;
-        cardTypesInput.MultiColumn = true;
-        cardTypesInput.ColumnWidth = 118;
-        cardTypesInput.IntegralHeight = false;
+        cardTypesPanel.Dock = DockStyle.Fill;
+        cardTypesPanel.FlowDirection = FlowDirection.LeftToRight;
+        cardTypesPanel.WrapContents = true;
+        cardTypesPanel.AutoScroll = false;
+        cardTypesPanel.BackColor = EditorTheme.Surface;
+        cardTypesPanel.Margin = new Padding(0);
+        cardTypesPanel.Padding = new Padding(0, 2, 0, 0);
+
         foreach ((CardTypeFlags flag, string name) in CardTypeNames())
-            cardTypesInput.Items.Add(new CardTypeOption(flag, name));
-        AddField(fields, "卡牌类型", cardTypesInput, 2, 0, 3);
+        {
+            CheckBox toggle = CreateTypeToggle(name);
+            var typeToggle = new TypeToggle(flag, toggle);
+            cardTypeToggles.Add(typeToggle);
+            toggle.CheckedChanged += (_, _) =>
+            {
+                UpdateTypeToggleAppearance(typeToggle);
+                MarkCardDirty();
+                UpdateStatFields();
+            };
+            cardTypesPanel.Controls.Add(toggle);
+        }
+
+        var typeNote = new Label
+        {
+            Dock = DockStyle.Fill,
+            Text = "可组合多种类别；编辑器会同时显示每种类别需要的数值。亲族必须与另一种类别并存。",
+            ForeColor = EditorTheme.Muted,
+            Font = new Font("Segoe UI", 8.7f),
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = true
+        };
+        typeHost.Controls.Add(cardTypesPanel, 0, 0);
+        typeHost.Controls.Add(typeNote, 0, 1);
+        AddSingleField(fields, "卡牌类型", typeHost, 1);
+
+        characteristicFields.Dock = DockStyle.Fill;
+        characteristicFields.FlowDirection = FlowDirection.LeftToRight;
+        characteristicFields.WrapContents = true;
+        characteristicFields.BackColor = EditorTheme.Surface;
+        characteristicFields.Margin = new Padding(0, 5, 10, 3);
+        characteristicFields.Padding = new Padding(0);
+
+        powerInput.Minimum = toughnessInput.Minimum = loyaltyInput.Minimum = defenseInput.Minimum = -999;
+        powerInput.Maximum = toughnessInput.Maximum = loyaltyInput.Maximum = defenseInput.Maximum = 999;
+
+        powerStatHost = CreateCharacteristicField("力量", powerInput);
+        toughnessStatHost = CreateCharacteristicField("防御力", toughnessInput);
+        loyaltyStatHost = CreateCharacteristicField("初始忠诚", loyaltyInput);
+        defenseStatHost = CreateCharacteristicField("布防值", defenseInput);
+        characteristicFields.Controls.Add(powerStatHost);
+        characteristicFields.Controls.Add(toughnessStatHost);
+        characteristicFields.Controls.Add(loyaltyStatHost);
+        characteristicFields.Controls.Add(defenseStatHost);
+
+        noCharacteristicsLabel = new Label
+        {
+            AutoSize = false,
+            Width = 520,
+            Height = 52,
+            Text = "当前类别没有需要填写的力量、防御力、忠诚或布防数值。",
+            ForeColor = EditorTheme.Muted,
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+        characteristicFields.Controls.Add(noCharacteristicsLabel);
+        AddSingleField(fields, "类别数值", characteristicFields, 2);
+
+        UpdateStatFields();
         return fields;
+    }
+
+    private CheckBox CreateTypeToggle(string text)
+    {
+        var toggle = new CheckBox
+        {
+            Text = text,
+            Appearance = Appearance.Button,
+            AutoSize = false,
+            Width = 96,
+            Height = 32,
+            Margin = new Padding(0, 0, 8, 6),
+            TextAlign = ContentAlignment.MiddleCenter,
+            FlatStyle = FlatStyle.Flat,
+            Cursor = Cursors.Hand,
+            BackColor = EditorTheme.Input,
+            ForeColor = EditorTheme.Muted
+        };
+        toggle.FlatAppearance.BorderSize = 1;
+        toggle.FlatAppearance.BorderColor = EditorTheme.Border;
+        toggle.FlatAppearance.MouseOverBackColor = EditorTheme.SurfaceRaised;
+        toggle.FlatAppearance.MouseDownBackColor = EditorTheme.Selection;
+        return toggle;
+    }
+
+    private Control CreateCharacteristicField(string label, NumericUpDown input)
+    {
+        var border = new Panel
+        {
+            Width = 218,
+            Height = 54,
+            BackColor = EditorTheme.Border,
+            Padding = new Padding(1),
+            Margin = new Padding(0, 0, 10, 8)
+        };
+        var body = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            BackColor = EditorTheme.Input,
+            Padding = new Padding(10, 8, 10, 8),
+            Margin = new Padding(0)
+        };
+        body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 78));
+        body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        var fieldLabel = new Label
+        {
+            Text = label,
+            Dock = DockStyle.Fill,
+            ForeColor = EditorTheme.Text,
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+        input.Dock = DockStyle.Fill;
+        input.Margin = new Padding(0);
+        body.Controls.Add(fieldLabel, 0, 0);
+        body.Controls.Add(input, 1, 0);
+        border.Controls.Add(body);
+        return border;
     }
 
     private Control BuildRulesEditor()
@@ -325,9 +534,9 @@ internal sealed class MainForm : Form
         return rulesTextInput;
     }
 
-    private TabPage BuildStringsTab()
+    private Control BuildStringsTab()
     {
-        var tab = new TabPage("提示文本")
+        var tab = new Panel
         {
             BackColor = EditorTheme.Window,
             Padding = new Padding(12)
@@ -410,9 +619,9 @@ internal sealed class MainForm : Form
         return tab;
     }
 
-    private TabPage BuildLuaTab()
+    private Control BuildLuaTab()
     {
-        var tab = new TabPage("Lua 脚本")
+        var tab = new Panel
         {
             BackColor = EditorTheme.Window,
             Padding = new Padding(12)
@@ -507,14 +716,14 @@ internal sealed class MainForm : Form
     {
         searchBox.TextChanged += (_, _) => RefreshCardList(currentCardKey);
         cardList.SelectedIndexChanged += (_, _) => CardSelectionChanged();
-        cardList.DoubleClick += (_, _) => editorTabs.SelectedIndex = 0;
+        cardList.DoubleClick += (_, _) => ShowEditorPage(0);
         cardList.DrawColumnHeader += DrawCardListHeader;
         cardList.DrawItem += (_, e) =>
         {
             if (cardList.View != View.Details) e.DrawDefault = true;
         };
         cardList.DrawSubItem += DrawCardListSubItem;
-        editorTabs.DrawItem += DrawEditorTab;
+        cardList.Resize += (_, _) => ResizeCardListColumns();
 
         foreach (TextBox input in new[]
                  {
@@ -537,11 +746,9 @@ internal sealed class MainForm : Form
             UpdateScriptPathStatus();
         };
 
-        foreach (NumericUpDown input in new[] { cardIdInput, powerInput, toughnessInput })
+        foreach (NumericUpDown input in new[] { powerInput, toughnessInput, loyaltyInput, defenseInput })
             input.ValueChanged += (_, _) => MarkCardDirty();
 
-        enabledInput.CheckedChanged += (_, _) => MarkCardDirty();
-        cardTypesInput.ItemCheck += (_, _) => MarkCardDirty();
         stringsGrid.CellValueChanged += (_, _) => MarkCardDirty();
         stringsGrid.KeyDown += (_, e) =>
         {
@@ -568,11 +775,13 @@ internal sealed class MainForm : Form
     private void ApplyControlSpecificTheme()
     {
         toolStrip.BackColor = EditorTheme.Surface;
-        editorTabs.BackColor = EditorTheme.Window;
         EditorTheme.StyleGrid(stringsGrid);
         cardList.BackColor = EditorTheme.Input;
         cardList.ForeColor = EditorTheme.Text;
         scriptStatusLabel.ForeColor = EditorTheme.Muted;
+        foreach (TypeToggle typeToggle in cardTypeToggles)
+            UpdateTypeToggleAppearance(typeToggle);
+        UpdateEditorPageButtons();
     }
 
     private void OpenDatabaseDialog()
@@ -660,8 +869,7 @@ internal sealed class MainForm : Form
         {
             if (!Matches(summary, filter)) continue;
             visibleCount++;
-            var item = new ListViewItem(summary.CardId.ToString()) { Tag = summary };
-            item.SubItems.Add(summary.Name);
+            var item = new ListViewItem(summary.Name) { Tag = summary };
             item.SubItems.Add($"{summary.SetCode}/{summary.CollectorNumber}");
             cardList.Items.Add(item);
             if (selectKey != null && summary.CardKey.Equals(selectKey, StringComparison.OrdinalIgnoreCase))
@@ -673,6 +881,7 @@ internal sealed class MainForm : Form
         }
 
         cardList.EndUpdate();
+        ResizeCardListColumns();
         suppressSelection = false;
         cardCountLabel.Text = filter.Length == 0
             ? $"{summaries.Count} 张"
@@ -714,15 +923,14 @@ internal sealed class MainForm : Form
         manaCostInput.Text = card.ManaCost;
         powerInput.Value = Math.Clamp(card.Power, -999, 999);
         toughnessInput.Value = Math.Clamp(card.Toughness, -999, 999);
+        loyaltyInput.Value = Math.Clamp(card.Loyalty, -999, 999);
+        defenseInput.Value = Math.Clamp(card.Defense, -999, 999);
         rulesTextInput.Text = card.RulesText;
-        enabledInput.Checked = card.Enabled;
         scriptPathInput.Text = card.ScriptPath;
 
-        for (int i = 0; i < cardTypesInput.Items.Count; i++)
-        {
-            var option = (CardTypeOption)cardTypesInput.Items[i];
-            cardTypesInput.SetItemChecked(i, card.Types.HasFlag(option.Flag));
-        }
+        foreach (TypeToggle typeToggle in cardTypeToggles)
+            typeToggle.Toggle.Checked = card.Types.HasFlag(typeToggle.Flag);
+        UpdateStatFields(card.Types);
 
         preservedEffects.Clear();
         preservedEffects.AddRange(card.Effects.Select(effect => effect.Clone()));
@@ -760,8 +968,8 @@ internal sealed class MainForm : Form
         setCodeInput.Text = "CUSTOM";
         collectorInput.Text = NextCollectorNumber();
         int creatureIndex = IndexOfType(CardTypeFlags.Creature);
-        if (creatureIndex >= 0) cardTypesInput.SetItemChecked(creatureIndex, true);
-        enabledInput.Checked = true;
+        if (creatureIndex >= 0) cardTypeToggles[creatureIndex].Toggle.Checked = true;
+        UpdateStatFields(CardTypeFlags.Creature);
         loading = false;
 
         cardDirty = true;
@@ -831,6 +1039,10 @@ internal sealed class MainForm : Form
 
     private CardRecord ReadForm()
     {
+        CardTypeFlags types = ReadTypes();
+        bool isCreature = types.HasFlag(CardTypeFlags.Creature);
+        bool isPlaneswalker = types.HasFlag(CardTypeFlags.Planeswalker);
+        bool isBattle = types.HasFlag(CardTypeFlags.Battle);
         var card = new CardRecord
         {
             OriginalCardKey = currentCardKey,
@@ -840,12 +1052,18 @@ internal sealed class MainForm : Form
             SetCode = setCodeInput.Text,
             CollectorNumber = collectorInput.Text,
             ManaCost = manaCostInput.Text,
-            Power = decimal.ToInt32(powerInput.Value),
-            Toughness = decimal.ToInt32(toughnessInput.Value),
+            Power = isCreature ? decimal.ToInt32(powerInput.Value) : 0,
+            // Keep legacy battle-only databases compatible with the current Unity reader,
+            // which still reads its generic defence value from the toughness column.
+            Toughness = isCreature
+                ? decimal.ToInt32(toughnessInput.Value)
+                : isBattle ? decimal.ToInt32(defenseInput.Value) : 0,
+            Loyalty = isPlaneswalker ? decimal.ToInt32(loyaltyInput.Value) : 0,
+            Defense = isBattle ? decimal.ToInt32(defenseInput.Value) : 0,
             ScriptPath = scriptPathInput.Text.Replace('\\', '/'),
             RulesText = rulesTextInput.Text,
-            Enabled = enabledInput.Checked,
-            Types = ReadTypes()
+            Enabled = true,
+            Types = types
         };
 
         card.Effects.AddRange(preservedEffects.Select(effect => effect.Clone()));
@@ -866,6 +1084,7 @@ internal sealed class MainForm : Form
             string message =
                 $"Schema：{result.SchemaVersion}\n" +
                 $"卡牌：{result.CardCount}\n" +
+                $"类别数值：{result.CharacteristicCount}\n" +
                 $"提示文本：{result.StringCount}\n" +
                 $"旧版效果记录：{result.EffectCount}";
             if (result.Errors.Count > 0)
@@ -937,11 +1156,13 @@ internal sealed class MainForm : Form
         manaCostInput.Clear();
         powerInput.Value = 0;
         toughnessInput.Value = 0;
+        loyaltyInput.Value = 0;
+        defenseInput.Value = 0;
         rulesTextInput.Clear();
-        enabledInput.Checked = true;
         scriptPathInput.Clear();
-        for (int i = 0; i < cardTypesInput.Items.Count; i++)
-            cardTypesInput.SetItemChecked(i, false);
+        foreach (TypeToggle typeToggle in cardTypeToggles)
+            typeToggle.Toggle.Checked = false;
+        UpdateStatFields(CardTypeFlags.None);
         stringsGrid.Rows.Clear();
         preservedEffects.Clear();
         luaEditor.CodeText = string.Empty;
@@ -956,16 +1177,34 @@ internal sealed class MainForm : Form
     private CardTypeFlags ReadTypes()
     {
         CardTypeFlags result = CardTypeFlags.None;
-        foreach (object item in cardTypesInput.CheckedItems)
-            result |= ((CardTypeOption)item).Flag;
+        foreach (TypeToggle typeToggle in cardTypeToggles)
+        {
+            if (typeToggle.Toggle.Checked)
+                result |= typeToggle.Flag;
+        }
         return result;
+    }
+
+    private void UpdateStatFields(CardTypeFlags? typesOverride = null)
+    {
+        CardTypeFlags types = typesOverride ?? ReadTypes();
+        bool isCreature = types.HasFlag(CardTypeFlags.Creature);
+        bool isPlaneswalker = types.HasFlag(CardTypeFlags.Planeswalker);
+        bool isBattle = types.HasFlag(CardTypeFlags.Battle);
+
+        if (powerStatHost != null) powerStatHost.Visible = isCreature;
+        if (toughnessStatHost != null) toughnessStatHost.Visible = isCreature;
+        if (loyaltyStatHost != null) loyaltyStatHost.Visible = isPlaneswalker;
+        if (defenseStatHost != null) defenseStatHost.Visible = isBattle;
+        if (noCharacteristicsLabel != null)
+            noCharacteristicsLabel.Visible = !isCreature && !isPlaneswalker && !isBattle;
     }
 
     private int IndexOfType(CardTypeFlags target)
     {
-        for (int i = 0; i < cardTypesInput.Items.Count; i++)
+        for (int i = 0; i < cardTypeToggles.Count; i++)
         {
-            if (((CardTypeOption)cardTypesInput.Items[i]).Flag == target)
+            if (cardTypeToggles[i].Flag == target)
                 return i;
         }
         return -1;
@@ -1311,12 +1550,18 @@ internal sealed class MainForm : Form
         {
             scriptStatusLabel.Text = "打开数据库后才能解析脚本路径。";
             scriptStatusLabel.ForeColor = EditorTheme.Muted;
+        foreach (TypeToggle typeToggle in cardTypeToggles)
+            UpdateTypeToggleAppearance(typeToggle);
+        UpdateEditorPageButtons();
             return;
         }
         if (string.IsNullOrWhiteSpace(scriptPathInput.Text))
         {
             scriptStatusLabel.Text = "尚未指定 Lua 脚本。";
             scriptStatusLabel.ForeColor = EditorTheme.Muted;
+        foreach (TypeToggle typeToggle in cardTypeToggles)
+            UpdateTypeToggleAppearance(typeToggle);
+        UpdateEditorPageButtons();
             return;
         }
         if (!TryResolveScriptPath(scriptPathInput.Text.Trim(), out string fullPath, out string error))
@@ -1372,9 +1617,9 @@ internal sealed class MainForm : Form
         string setCode = setCodeInput.Text.Trim().ToUpperInvariant();
         string collector = collectorInput.Text.Trim();
         string printing = setCode.Length == 0 && collector.Length == 0
-            ? "尚未设置印刷信息"
-            : $"{setCode}/{collector}";
-        cardHeaderMeta.Text = $"{printing}　内部 ID {cardIdInput.Value:0}";
+            ? "尚未设置系列与卡图编号"
+            : $"{setCode}　·　卡图 {collector}";
+        cardHeaderMeta.Text = printing;
     }
 
     private void MainFormKeyDown(object? sender, KeyEventArgs e)
@@ -1397,22 +1642,68 @@ internal sealed class MainForm : Form
         }
     }
 
-    private void DrawEditorTab(object? sender, DrawItemEventArgs e)
+    private void ResizeCardListColumns()
     {
-        Rectangle bounds = e.Bounds;
-        bool selected = e.Index == editorTabs.SelectedIndex;
-        using var background = new SolidBrush(selected ? EditorTheme.SurfaceRaised : EditorTheme.Surface);
-        using var accent = new SolidBrush(EditorTheme.Accent);
-        e.Graphics.FillRectangle(background, bounds);
-        if (selected)
-            e.Graphics.FillRectangle(accent, bounds.Left, bounds.Bottom - 3, bounds.Width, 3);
-        TextRenderer.DrawText(
-            e.Graphics,
-            editorTabs.TabPages[e.Index].Text,
-            Font,
-            bounds,
-            selected ? EditorTheme.Text : EditorTheme.Muted,
-            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        if (cardList.Columns.Count != 2 || cardList.ClientSize.Width <= 0)
+            return;
+
+        const int printingWidth = 118;
+        cardList.Columns[1].Width = printingWidth;
+        cardList.Columns[0].Width = Math.Max(110, cardList.ClientSize.Width - printingWidth - 5);
+    }
+
+    private Button CreateEditorPageButton(string text, Action action)
+    {
+        var button = new Button
+        {
+            Text = text,
+            Width = 150,
+            Height = 36,
+            Margin = new Padding(0, 0, 8, 0),
+            FlatStyle = FlatStyle.Flat,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Cursor = Cursors.Hand,
+            BackColor = EditorTheme.Surface,
+            ForeColor = EditorTheme.Muted
+        };
+        button.FlatAppearance.BorderSize = 1;
+        button.FlatAppearance.BorderColor = EditorTheme.Border;
+        button.FlatAppearance.MouseOverBackColor = EditorTheme.SurfaceRaised;
+        button.FlatAppearance.MouseDownBackColor = EditorTheme.Input;
+        button.Click += (_, _) => action();
+        return button;
+    }
+
+    private void ShowEditorPage(int pageIndex)
+    {
+        if (pageIndex < 0 || pageIndex >= editorPages.Count)
+            return;
+
+        selectedEditorPage = pageIndex;
+        for (int i = 0; i < editorPages.Count; i++)
+            editorPages[i].Visible = i == pageIndex;
+        editorPages[pageIndex].BringToFront();
+        UpdateEditorPageButtons();
+    }
+
+    private void UpdateEditorPageButtons()
+    {
+        for (int i = 0; i < editorPageButtons.Count; i++)
+        {
+            bool selected = i == selectedEditorPage;
+            Button button = editorPageButtons[i];
+            button.BackColor = selected ? EditorTheme.SurfaceRaised : EditorTheme.Surface;
+            button.ForeColor = selected ? Color.White : EditorTheme.Muted;
+            button.FlatAppearance.BorderColor = selected ? EditorTheme.Accent : EditorTheme.Border;
+        }
+    }
+
+    private static void UpdateTypeToggleAppearance(TypeToggle typeToggle)
+    {
+        bool selected = typeToggle.Toggle.Checked;
+        typeToggle.Toggle.BackColor = selected ? EditorTheme.Selection : EditorTheme.Input;
+        typeToggle.Toggle.ForeColor = selected ? Color.White : EditorTheme.Muted;
+        typeToggle.Toggle.FlatAppearance.BorderColor = selected ? EditorTheme.Accent : EditorTheme.Border;
     }
 
     private void DrawCardListHeader(object? sender, DrawListViewColumnHeaderEventArgs e)
@@ -1424,7 +1715,7 @@ internal sealed class MainForm : Form
         using var headerFont = new Font("Segoe UI", 9f, FontStyle.Bold);
         TextRenderer.DrawText(
             e.Graphics,
-            e.Header.Text,
+            e.Header?.Text ?? string.Empty,
             headerFont,
             new Rectangle(e.Bounds.X + 7, e.Bounds.Y, e.Bounds.Width - 10, e.Bounds.Height),
             EditorTheme.Text,
@@ -1433,14 +1724,14 @@ internal sealed class MainForm : Form
 
     private void DrawCardListSubItem(object? sender, DrawListViewSubItemEventArgs e)
     {
-        bool selected = e.Item.Selected;
+        bool selected = e.Item?.Selected == true;
         using var background = new SolidBrush(selected ? EditorTheme.Selection : EditorTheme.Input);
         using var border = new Pen(Color.FromArgb(42, 48, 57));
         e.Graphics.FillRectangle(background, e.Bounds);
         e.Graphics.DrawLine(border, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
         TextRenderer.DrawText(
             e.Graphics,
-            e.SubItem.Text,
+            e.SubItem?.Text ?? string.Empty,
             Font,
             new Rectangle(e.Bounds.X + 7, e.Bounds.Y, e.Bounds.Width - 10, e.Bounds.Height),
             selected ? Color.White : EditorTheme.Text,
@@ -1499,9 +1790,9 @@ internal sealed class MainForm : Form
             BackColor = EditorTheme.Surface,
             Margin = new Padding(0)
         };
-        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 104));
+        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
         fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 104));
+        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
         fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         for (int i = 0; i < rows; i++)
             fields.RowStyles.Add(new RowStyle(SizeType.Percent, 100f / rows));
@@ -1539,7 +1830,30 @@ internal sealed class MainForm : Form
         return border;
     }
 
-    private static void AddField(
+    private static Label AddSingleField(
+        TableLayoutPanel table,
+        string label,
+        Control input,
+        int row)
+    {
+        var fieldLabel = new Label
+        {
+            Text = label,
+            Dock = DockStyle.Fill,
+            ForeColor = EditorTheme.Muted,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(0, 0, 10, 0),
+            AutoEllipsis = true
+        };
+        input.Dock = DockStyle.Fill;
+        if (input.Margin == Padding.Empty)
+            input.Margin = new Padding(0, 6, 10, 6);
+        table.Controls.Add(fieldLabel, 0, row);
+        table.Controls.Add(input, 1, row);
+        return fieldLabel;
+    }
+
+    private static Label AddField(
         TableLayoutPanel table,
         string label,
         Control input,
@@ -1557,10 +1871,11 @@ internal sealed class MainForm : Form
             AutoEllipsis = true
         };
         input.Dock = DockStyle.Fill;
-        input.Margin = new Padding(0, 5, 12, 5);
+        input.Margin = new Padding(0, 6, 12, 6);
         table.Controls.Add(fieldLabel, column, row);
         table.Controls.Add(input, column + 1, row);
         if (span > 1) table.SetColumnSpan(input, span);
+        return fieldLabel;
     }
 
     private static Button CreateButton(
@@ -1607,8 +1922,5 @@ internal sealed class MainForm : Form
         UpdateStatus(exception.Message, true);
     }
 
-    private sealed record CardTypeOption(CardTypeFlags Flag, string DisplayName)
-    {
-        public override string ToString() => DisplayName;
-    }
+    private sealed record TypeToggle(CardTypeFlags Flag, CheckBox Toggle);
 }

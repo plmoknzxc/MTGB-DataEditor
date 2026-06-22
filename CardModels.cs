@@ -38,6 +38,8 @@ internal sealed class CardRecord
     public string RulesText { get; set; } = string.Empty;
     public int Power { get; set; }
     public int Toughness { get; set; }
+    public int Loyalty { get; set; }
+    public int Defense { get; set; }
     public string ScriptPath { get; set; } = string.Empty;
     public bool Enabled { get; set; } = true;
 
@@ -76,6 +78,7 @@ internal sealed class DatabaseValidationResult
     public int CardCount { get; init; }
     public int EffectCount { get; init; }
     public int StringCount { get; init; }
+    public int CharacteristicCount { get; init; }
     public List<string> Errors { get; } = new();
     public bool IsValid => Errors.Count == 0;
 }

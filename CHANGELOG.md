@@ -1,13 +1,34 @@
 # Changelog
 
-## Editor redesign draft
+## 2026-06-22 界面导航与复合类别数值
 
-- Rebuilt the main window around Basic Info, Prompt Text, and Lua Script tabs.
-- Replaced the visible effect/JSON grid with prompt text editing.
-- Added backward-compatible `card_strings` storage.
-- Preserved hidden legacy `card_effects` rows during card saves.
-- Added an embedded Lua editor with line numbers and basic syntax highlighting.
-- Added Lua file selection, creation, reload, save, and folder opening commands.
-- Added separate unsaved-state tracking for database data and Lua files.
-- Kept all Lua path behavior compatible with the current Unity runtime.
-- Did not modify the MTGB Unity project.
+- 移除 WinForms 原生标签控件，改成全深色页面导航，消除标签栏右侧白色区域。
+- 重排卡牌标题区域，修复“未选择卡牌”和系列信息被裁切的问题。
+- 基本信息页面改为可滚动布局，并重新调整卡牌标识、游戏数据和规则文本的高度。
+- 从基本信息页面移除“启用此卡牌”；通过编辑器保存的卡牌固定启用。
+- 将类型选择器改为深色切换按钮。
+- 生物、鹏洛客、战役的数值不再互斥：
+  - 生物显示力量和防御力。
+  - 鹏洛客显示初始忠诚。
+  - 战役显示布防值。
+  - 复合类别会同时显示全部对应字段。
+- 新增 `card_characteristics` 编辑器数据表，独立保存初始忠诚和布防值。
+- 战役单类别继续把布防值镜像到 `toughness`，保持当前 Unity 数据读取兼容。
+- 增加“亲族不能单独存在”的保存校验。
+- 自检现在覆盖生物／鹏洛客／战役复合类别和四种类别数值。
+- 未修改 MTGB Unity 项目。
+
+## 2026-06-22 布局与类型字段修正
+
+- 增大基础信息区域的行高和标签宽度，修复高 DPI 下文字与输入框被裁切的问题。
+- 普通界面隐藏内部 ID；新卡牌继续自动分配唯一 ID，现有卡牌保持原值。
+- 左侧列表改为“名称 + 系列/卡图编号”，并根据窗口宽度自动调整列宽。
+- 将“收藏编号”改名为“卡图编号”，并增加卡图路径提示。
+- 生物显示力量和防御力；战役显示布防值；其他类型隐藏数值输入。
+- 未修改 MTGB Unity 项目。
+
+## 2026-06-22 启动修复
+
+- 修复 `SplitContainer` 在默认尺寸下校验失败、导致程序双击后立即退出的问题。
+- 命令行 `--self-test` 与 `--validate` 会附加到父控制台并显示结果。
+- 启动异常会弹窗，并写入临时目录中的错误日志。
