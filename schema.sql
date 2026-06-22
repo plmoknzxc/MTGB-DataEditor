@@ -22,6 +22,7 @@ CREATE TABLE cards (
     UNIQUE (set_code, collector_number)
 );
 
+-- 兼容旧数据。编辑器新版不再直接编辑这张表，但保存卡牌时会保留已有记录。
 CREATE TABLE card_effects (
     card_key TEXT NOT NULL,
     effect_order INTEGER NOT NULL,
@@ -29,6 +30,15 @@ CREATE TABLE card_effects (
     effect_key TEXT NOT NULL,
     parameters_json TEXT NOT NULL DEFAULT '{}',
     PRIMARY KEY (card_key, effect_order),
+    FOREIGN KEY (card_key) REFERENCES cards(card_key) ON DELETE CASCADE
+);
+
+-- 编辑器专用的提示文本。Unity 端目前可以忽略此表。
+CREATE TABLE card_strings (
+    card_key TEXT NOT NULL,
+    string_index INTEGER NOT NULL,
+    text TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (card_key, string_index),
     FOREIGN KEY (card_key) REFERENCES cards(card_key) ON DELETE CASCADE
 );
 

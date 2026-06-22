@@ -12,15 +12,19 @@ internal sealed class CardDatabaseService : IDisposable
     {
         Path = System.IO.Path.GetFullPath(path);
         database = NativeSqlite.Open(Path, false);
+
         int version = ReadSchemaVersion();
         if (version != SupportedSchemaVersion)
         {
             database.Dispose();
             throw new InvalidDataException($"不支持的数据库版本 {version}，当前编辑器需要版本 {SupportedSchemaVersion}。");
         }
+
+        EnsureEditorTables();
     }
 
     public string Path { get; }
+    public string DirectoryPath => System.IO.Path.GetDirectoryName(Path) ?? AppContext.BaseDirectory;
 
     public static void Create(string path, string schemaPath)
     {
@@ -29,9 +33,18 @@ internal sealed class CardDatabaseService : IDisposable
 
         using NativeSqlite created = NativeSqlite.Open(path, true);
         created.Execute(File.ReadAllText(schemaPath));
-        created.ExecuteNonQuery("INSERT INTO metadata(key, value) VALUES (?, ?);", "schema_version", SupportedSchemaVersion.ToString());
-        created.ExecuteNonQuery("INSERT INTO metadata(key, value) VALUES (?, ?);", "database_id", $"custom.{Guid.NewGuid():N}");
-        created.ExecuteNonQuery("INSERT INTO metadata(key, value) VALUES (?, ?);", "display_name", System.IO.Path.GetFileNameWithoutExtension(path));
+        created.ExecuteNonQuery(
+            "INSERT INTO metadata(key, value) VALUES (?, ?);",
+            "schema_version",
+            SupportedSchemaVersion.ToString());
+        created.ExecuteNonQuery(
+            "INSERT INTO metadata(key, value) VALUES (?, ?);",
+            "database_id",
+            $"custom.{Guid.NewGuid():N}");
+        created.ExecuteNonQuery(
+            "INSERT INTO metadata(key, value) VALUES (?, ?);",
+            "display_name",
+            System.IO.Path.GetFileNameWithoutExtension(path));
     }
 
     public List<CardSummary> LoadSummaries()
@@ -82,6 +95,7 @@ FROM cards WHERE card_key = ? LIMIT 1;", row =>
         }, cardKey);
 
         if (card == null) throw new KeyNotFoundException($"找不到卡牌 {cardKey}。");
+
         database.Query(@"
 SELECT effect_order, trigger, effect_key, parameters_json
 FROM card_effects WHERE card_key = ? ORDER BY effect_order;", row =>
@@ -94,6 +108,18 @@ FROM card_effects WHERE card_key = ? ORDER BY effect_order;", row =>
                 ParametersJson = row.String(3)
             });
         }, cardKey);
+
+        database.Query(@"
+SELECT string_index, text
+FROM card_strings WHERE card_key = ? ORDER BY string_index;", row =>
+        {
+            card.Strings.Add(new CardStringRecord
+            {
+                Index = row.Int32(0),
+                Text = row.String(1)
+            });
+        }, cardKey);
+
         return card;
     }
 
@@ -111,32 +137,70 @@ FROM card_effects WHERE card_key = ? ORDER BY effect_order;", row =>
 INSERT INTO cards(card_key, card_id, oracle_id, set_code, collector_number, name,
                   type_flags, mana_cost, rules_text, power, toughness, script_path, enabled)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
-                    newKey, card.CardId, card.OracleId.Trim(), card.SetCode.Trim().ToUpperInvariant(),
-                    card.CollectorNumber.Trim(), card.Name.Trim(), (int)card.Types, card.ManaCost.Trim(),
-                    card.RulesText, card.Power, card.Toughness, card.ScriptPath.Trim(), card.Enabled);
+                    newKey,
+                    card.CardId,
+                    card.OracleId.Trim(),
+                    card.SetCode.Trim().ToUpperInvariant(),
+                    card.CollectorNumber.Trim(),
+                    card.Name.Trim(),
+                    (int)card.Types,
+                    card.ManaCost.Trim(),
+                    card.RulesText,
+                    card.Power,
+                    card.Toughness,
+                    card.ScriptPath.Trim(),
+                    card.Enabled);
             }
             else
             {
+                // 子表没有 ON UPDATE CASCADE。先暂存于 CardRecord，再删除并在更新后恢复。
                 database.ExecuteNonQuery("DELETE FROM card_effects WHERE card_key = ?;", card.OriginalCardKey);
+                database.ExecuteNonQuery("DELETE FROM card_strings WHERE card_key = ?;", card.OriginalCardKey);
+
                 int changed = database.ExecuteNonQuery(@"
 UPDATE cards SET card_key = ?, card_id = ?, oracle_id = ?, set_code = ?, collector_number = ?,
                  name = ?, type_flags = ?, mana_cost = ?, rules_text = ?, power = ?, toughness = ?,
                  script_path = ?, enabled = ?
 WHERE card_key = ?;",
-                    newKey, card.CardId, card.OracleId.Trim(), card.SetCode.Trim().ToUpperInvariant(),
-                    card.CollectorNumber.Trim(), card.Name.Trim(), (int)card.Types, card.ManaCost.Trim(),
-                    card.RulesText, card.Power, card.Toughness, card.ScriptPath.Trim(), card.Enabled,
+                    newKey,
+                    card.CardId,
+                    card.OracleId.Trim(),
+                    card.SetCode.Trim().ToUpperInvariant(),
+                    card.CollectorNumber.Trim(),
+                    card.Name.Trim(),
+                    (int)card.Types,
+                    card.ManaCost.Trim(),
+                    card.RulesText,
+                    card.Power,
+                    card.Toughness,
+                    card.ScriptPath.Trim(),
+                    card.Enabled,
                     card.OriginalCardKey);
-                if (changed != 1) throw new InvalidOperationException("保存失败：原卡牌记录不存在。");
+
+                if (changed != 1)
+                    throw new InvalidOperationException("保存失败：原卡牌记录不存在。");
             }
 
-            for (int i = 0; i < card.Effects.Count; i++)
+            foreach (CardEffectRecord effect in card.Effects.OrderBy(effect => effect.Order))
             {
-                CardEffectRecord effect = card.Effects[i];
                 database.ExecuteNonQuery(@"
 INSERT INTO card_effects(card_key, effect_order, trigger, effect_key, parameters_json)
 VALUES (?, ?, ?, ?, ?);",
-                    newKey, effect.Order, effect.Trigger.Trim(), effect.EffectKey.Trim(), effect.ParametersJson.Trim());
+                    newKey,
+                    effect.Order,
+                    effect.Trigger.Trim(),
+                    effect.EffectKey.Trim(),
+                    effect.ParametersJson.Trim());
+            }
+
+            foreach (CardStringRecord text in card.Strings.OrderBy(text => text.Index))
+            {
+                database.ExecuteNonQuery(@"
+INSERT INTO card_strings(card_key, string_index, text)
+VALUES (?, ?, ?);",
+                    newKey,
+                    text.Index,
+                    text.Text);
             }
 
             database.Execute("COMMIT;");
@@ -160,7 +224,8 @@ VALUES (?, ?, ?, ?, ?);",
         {
             SchemaVersion = ReadSchemaVersion(),
             CardCount = database.ScalarInt("SELECT COUNT(*) FROM cards;"),
-            EffectCount = database.ScalarInt("SELECT COUNT(*) FROM card_effects;")
+            EffectCount = database.ScalarInt("SELECT COUNT(*) FROM card_effects;"),
+            StringCount = database.ScalarInt("SELECT COUNT(*) FROM card_strings;")
         };
 
         if (result.SchemaVersion != SupportedSchemaVersion)
@@ -174,41 +239,88 @@ WHERE trim(name) = '' OR trim(set_code) = '' OR trim(collector_number) = '' OR c
         database.Query(@"
 SELECT card_key, parameters_json FROM card_effects;", row =>
         {
-            try { JsonDocument.Parse(row.String(1)).Dispose(); }
-            catch { result.Errors.Add($"卡牌 {row.String(0)} 的效果参数不是有效 JSON。"); }
+            try
+            {
+                JsonDocument.Parse(row.String(1)).Dispose();
+            }
+            catch
+            {
+                result.Errors.Add($"卡牌 {row.String(0)} 的旧版效果参数不是有效 JSON。");
+            }
         });
+
+        database.Query(@"
+SELECT card_key, string_index FROM card_strings WHERE string_index < 0;", row =>
+            result.Errors.Add($"卡牌 {row.String(0)} 存在无效的提示文本索引 {row.Int32(1)}。"));
 
         return result;
     }
 
     public void Dispose() => database.Dispose();
 
+    private void EnsureEditorTables()
+    {
+        database.Execute(@"
+CREATE TABLE IF NOT EXISTS card_strings (
+    card_key TEXT NOT NULL,
+    string_index INTEGER NOT NULL,
+    text TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (card_key, string_index),
+    FOREIGN KEY (card_key) REFERENCES cards(card_key) ON DELETE CASCADE
+);");
+    }
+
     private int ReadSchemaVersion()
     {
-        string? value = database.ScalarString("SELECT value FROM metadata WHERE key = 'schema_version' LIMIT 1;");
+        string? value = database.ScalarString(
+            "SELECT value FROM metadata WHERE key = 'schema_version' LIMIT 1;");
         return int.TryParse(value, out int version) ? version : 0;
     }
 
     private static void ValidateCard(CardRecord card)
     {
-        if (card.CardId <= 0) throw new InvalidDataException("内部卡牌 ID 必须大于 0。");
-        if (string.IsNullOrWhiteSpace(card.Name)) throw new InvalidDataException("卡名不能为空。");
-        if (string.IsNullOrWhiteSpace(card.SetCode)) throw new InvalidDataException("系列代号不能为空。");
+        if (card.CardId <= 0)
+            throw new InvalidDataException("内部卡牌 ID 必须大于 0。");
+        if (string.IsNullOrWhiteSpace(card.Name))
+            throw new InvalidDataException("卡名不能为空。");
+        if (string.IsNullOrWhiteSpace(card.SetCode))
+            throw new InvalidDataException("系列代号不能为空。");
         if (card.SetCode.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
             throw new InvalidDataException("系列代号包含不能用于图片目录的字符。");
-        if (string.IsNullOrWhiteSpace(card.CollectorNumber)) throw new InvalidDataException("收藏编号不能为空。");
+        if (string.IsNullOrWhiteSpace(card.CollectorNumber))
+            throw new InvalidDataException("收藏编号不能为空。");
         if (card.CollectorNumber.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
             throw new InvalidDataException("收藏编号包含不能用于图片文件名的字符。");
-        if (card.Types == CardTypeFlags.None) throw new InvalidDataException("至少选择一种卡牌类型。");
+        if (card.Types == CardTypeFlags.None)
+            throw new InvalidDataException("至少选择一种卡牌类型。");
 
-        var orders = new HashSet<int>();
+        var effectOrders = new HashSet<int>();
         foreach (CardEffectRecord effect in card.Effects)
         {
-            if (!orders.Add(effect.Order)) throw new InvalidDataException($"效果顺序 {effect.Order} 重复。");
-            if (string.IsNullOrWhiteSpace(effect.Trigger)) throw new InvalidDataException("效果触发时机不能为空。");
-            if (string.IsNullOrWhiteSpace(effect.EffectKey)) throw new InvalidDataException("效果键不能为空。");
-            try { JsonDocument.Parse(effect.ParametersJson).Dispose(); }
-            catch (JsonException exception) { throw new InvalidDataException($"效果 {effect.EffectKey} 的参数 JSON 无效：{exception.Message}"); }
+            if (!effectOrders.Add(effect.Order))
+                throw new InvalidDataException($"旧版效果顺序 {effect.Order} 重复。");
+            if (string.IsNullOrWhiteSpace(effect.Trigger))
+                throw new InvalidDataException("旧版效果触发时机不能为空。");
+            if (string.IsNullOrWhiteSpace(effect.EffectKey))
+                throw new InvalidDataException("旧版效果键不能为空。");
+            try
+            {
+                JsonDocument.Parse(effect.ParametersJson).Dispose();
+            }
+            catch (JsonException exception)
+            {
+                throw new InvalidDataException(
+                    $"旧版效果 {effect.EffectKey} 的参数 JSON 无效：{exception.Message}");
+            }
+        }
+
+        var stringIndexes = new HashSet<int>();
+        foreach (CardStringRecord text in card.Strings)
+        {
+            if (text.Index < 0)
+                throw new InvalidDataException("提示文本索引不能小于 0。");
+            if (!stringIndexes.Add(text.Index))
+                throw new InvalidDataException($"提示文本索引 {text.Index} 重复。");
         }
     }
 }

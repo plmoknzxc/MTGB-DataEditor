@@ -40,7 +40,10 @@ internal sealed class CardRecord
     public int Toughness { get; set; }
     public string ScriptPath { get; set; } = string.Empty;
     public bool Enabled { get; set; } = true;
+
+    // 旧版效果数据暂不在界面中显示，但会原样保留，避免保存卡牌时丢失数据。
     public List<CardEffectRecord> Effects { get; } = new();
+    public List<CardStringRecord> Strings { get; } = new();
 
     public string CardKey => $"{SetCode.Trim().ToUpperInvariant()}/{CollectorNumber.Trim()}";
 }
@@ -51,6 +54,20 @@ internal sealed class CardEffectRecord
     public string Trigger { get; set; } = "on_play";
     public string EffectKey { get; set; } = string.Empty;
     public string ParametersJson { get; set; } = "{}";
+
+    public CardEffectRecord Clone() => new()
+    {
+        Order = Order,
+        Trigger = Trigger,
+        EffectKey = EffectKey,
+        ParametersJson = ParametersJson
+    };
+}
+
+internal sealed class CardStringRecord
+{
+    public int Index { get; set; }
+    public string Text { get; set; } = string.Empty;
 }
 
 internal sealed class DatabaseValidationResult
@@ -58,6 +75,7 @@ internal sealed class DatabaseValidationResult
     public int SchemaVersion { get; init; }
     public int CardCount { get; init; }
     public int EffectCount { get; init; }
+    public int StringCount { get; init; }
     public List<string> Errors { get; } = new();
     public bool IsValid => Errors.Count == 0;
 }

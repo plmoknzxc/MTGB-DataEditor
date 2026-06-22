@@ -1,8 +1,5 @@
 bin/
 obj/
-publish/
+.vs/
 *.user
 *.suo
-*.mtgbdb-journal
-*.mtgbdb-shm
-*.mtgbdb-wal
