@@ -12,5 +12,6 @@
 
   <ItemGroup>
     <None Include="schema.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\default-card-back.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

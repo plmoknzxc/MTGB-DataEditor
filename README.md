@@ -52,15 +52,26 @@ card_characteristics(card_key, loyalty, defense)
 
 当前只强制一条明确规则：`亲族/Kindred` 不能单独存在，必须同时具有另一种卡牌类型。
 
-## Lua 路径
+## 资源目录
 
-这一版本没有修改 MTGB Unity 项目，因此继续遵守当前运行端规则：
+编辑器按 MTGB 根目录组织数据库、卡图和脚本。如果 `.mtgbdb` 位于 `MTGB/数据库/`，则 MTGB 根目录是 `数据库` 的上一级目录：
 
-- `script_path` 是相对于当前 `.mtgbdb` 所在目录的路径。
-- 编辑器拒绝写入数据库目录之外的 Lua 文件。
-- Lua 文件名没有固定规则，也不会自动按照内部 ID 命名。
+```text
+MTGB/
+  数据库/
+    cards.mtgbdb
+  卡图/
+    SOS/
+      65.png
+  脚本/
+    SOS/
+      m65.lua
+```
 
-独立 `CardScripts` 根目录需要 Unity 端配合修改后才能启用，本仓库目前没有执行该修改。
+- 卡图路径按 `卡图/<系列代号>/<卡图编号>.(png|jpg|jpeg|webp)` 查找。
+- `script_path` 是相对于 MTGB 根目录的路径，例如 `脚本/SOS/m65.lua`。
+- 新建脚本默认保存到 `脚本/<系列代号>/m<卡图编号>.lua`。
+- 编辑器拒绝写入 MTGB 根目录之外的 Lua 文件。
 
 ## 环境
 
@@ -88,5 +99,5 @@ dotnet run --project MTGB.CardDatabaseEditor.csproj -- --self-test
 ## 字段说明
 
 - `card_id` 是运行端使用的内部唯一编号。编辑器会保留旧值，并在新建卡牌时自动生成。
-- “卡图编号”对应数据库的 `collector_number`，同时用于 `CardImages/<系列代号>/<卡图编号>.png` 的卡图路径。
+- “卡图编号”对应数据库的 `collector_number`，同时用于 `卡图/<系列代号>/<卡图编号>.png` 和 `脚本/<系列代号>/m<卡图编号>.lua`。
 - Oracle ID 用来关联同一张规则卡牌的不同印刷版本；自制卡可以留空。

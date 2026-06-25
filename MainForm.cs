@@ -11,6 +11,8 @@ internal sealed class MainForm : Form
     private readonly Label cardCountLabel = new();
     private readonly Label cardHeaderTitle = new();
     private readonly Label cardHeaderMeta = new();
+    private readonly PictureBox cardImagePreview = new();
+    private readonly Label cardImageStatusLabel = new();
     private readonly Panel editorPageHost = new();
     private readonly List<Control> editorPages = new();
     private readonly List<Button> editorPageButtons = new();
@@ -51,6 +53,8 @@ internal sealed class MainForm : Form
     private readonly List<CardEffectRecord> preservedEffects = new();
     private string? currentCardKey;
     private string? loadedScriptFullPath;
+    private string? scriptCreatePromptDismissedForCardKey;
+    private Image? currentCardPreviewImage;
     private bool cardDirty;
     private bool scriptDirty;
     private bool loading;
@@ -64,7 +68,7 @@ internal sealed class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
         WindowState = FormWindowState.Maximized;
-        Font = new Font("Segoe UI", 10f);
+        Font = new Font("Microsoft YaHei UI", 9.8f);
         BackColor = EditorTheme.Window;
         ForeColor = EditorTheme.Text;
         KeyPreview = true;
@@ -91,6 +95,7 @@ internal sealed class MainForm : Form
         {
             BackColor = EditorTheme.Surface,
             ForeColor = EditorTheme.Muted,
+            Font = new Font("Microsoft YaHei UI", 9.2f),
             SizingGrip = false,
             Renderer = new ToolStripProfessionalRenderer(new DarkColorTable())
         };
@@ -104,7 +109,7 @@ internal sealed class MainForm : Form
             // Give it a realistic design-time size before applying the panel limits;
             // otherwise the default 150px width can make the form crash at startup.
             Size = new Size(1200, 700),
-            SplitterDistance = 330,
+            SplitterDistance = 350,
             Panel1MinSize = 270,
             Panel2MinSize = 650,
             SplitterWidth = 6,
@@ -159,8 +164,8 @@ internal sealed class MainForm : Form
             RowCount = 4,
             BackColor = EditorTheme.Surface
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
 
@@ -170,13 +175,13 @@ internal sealed class MainForm : Form
             Text = "卡牌库",
             Dock = DockStyle.Left,
             AutoSize = false,
-            Width = 150,
-            Font = new Font("Segoe UI", 13f, FontStyle.Bold),
+            Width = 160,
+            Font = new Font("Microsoft YaHei UI", 13f, FontStyle.Bold),
             ForeColor = EditorTheme.Text,
             TextAlign = ContentAlignment.MiddleLeft
         };
         cardCountLabel.Dock = DockStyle.Right;
-        cardCountLabel.Width = 100;
+        cardCountLabel.Width = 112;
         cardCountLabel.ForeColor = EditorTheme.Muted;
         cardCountLabel.TextAlign = ContentAlignment.MiddleRight;
         header.Controls.Add(cardCountLabel);
@@ -202,7 +207,7 @@ internal sealed class MainForm : Form
             Text = "Ctrl+S 保存　Ctrl+N 新建卡牌",
             ForeColor = EditorTheme.Muted,
             TextAlign = ContentAlignment.MiddleLeft,
-            Font = new Font("Segoe UI", 8.8f)
+            Font = new Font("Microsoft YaHei UI", 8.6f)
         };
 
         layout.Controls.Add(header, 0, 0);
@@ -222,15 +227,15 @@ internal sealed class MainForm : Form
             RowCount = 3,
             BackColor = EditorTheme.Window
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 84));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var header = new Panel
         {
             Dock = DockStyle.Fill,
             BackColor = EditorTheme.Surface,
-            Padding = new Padding(20, 9, 20, 8),
+            Padding = new Padding(20, 10, 20, 9),
             Margin = new Padding(0, 0, 0, 6)
         };
         var headerLayout = new TableLayoutPanel
@@ -241,11 +246,11 @@ internal sealed class MainForm : Form
             BackColor = EditorTheme.Surface,
             Margin = new Padding(0)
         };
-        headerLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+        headerLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
         headerLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         cardHeaderTitle.Dock = DockStyle.Fill;
-        cardHeaderTitle.Font = new Font("Segoe UI", 14f, FontStyle.Bold);
+        cardHeaderTitle.Font = new Font("Microsoft YaHei UI", 14.5f, FontStyle.Bold);
         cardHeaderTitle.ForeColor = EditorTheme.Text;
         cardHeaderTitle.TextAlign = ContentAlignment.MiddleLeft;
         cardHeaderTitle.AutoEllipsis = true;
@@ -263,13 +268,12 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             BackColor = EditorTheme.Surface,
-            Padding = new Padding(8, 5, 8, 5),
+            Padding = new Padding(8, 6, 8, 6),
             Margin = new Padding(0)
         };
         var navigationButtons = new FlowLayoutPanel
         {
-            Dock = DockStyle.Left,
-            Width = 474,
+            Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
             BackColor = EditorTheme.Surface,
@@ -285,10 +289,9 @@ internal sealed class MainForm : Form
         editorPages.Clear();
         editorPageButtons.Clear();
         editorPages.Add(BuildBasicTab());
-        editorPages.Add(BuildStringsTab());
         editorPages.Add(BuildLuaTab());
 
-        string[] pageNames = { "基本信息", "提示文本", "Lua 脚本" };
+        string[] pageNames = { "基本信息", "Lua 脚本" };
         for (int i = 0; i < editorPages.Count; i++)
         {
             int pageIndex = i;
@@ -316,7 +319,8 @@ internal sealed class MainForm : Form
             Dock = DockStyle.Fill,
             BackColor = EditorTheme.Window,
             AutoScroll = true,
-            Padding = new Padding(12, 10, 12, 12)
+            Padding = new Padding(12, 10, 12, 12),
+            AutoScrollMargin = new Size(0, 16)
         };
 
         var layout = new TableLayoutPanel
@@ -324,21 +328,57 @@ internal sealed class MainForm : Form
             Dock = DockStyle.Top,
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            ColumnCount = 1,
-            RowCount = 3,
+            ColumnCount = 2,
+            RowCount = 4,
             BackColor = EditorTheme.Window,
             Margin = new Padding(0)
         };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 312));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 188));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 354));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 410));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 210));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 450));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 370));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 320));
 
-        layout.Controls.Add(CreateSection("卡牌标识", BuildIdentityFields()), 0, 0);
-        layout.Controls.Add(CreateSection("游戏数据", BuildGameplayFields()), 0, 1);
-        layout.Controls.Add(CreateSection("规则文本", BuildRulesEditor()), 0, 2);
+        Control previewSection = CreateSection("卡图预览", BuildCardImagePreview());
+        layout.Controls.Add(previewSection, 0, 0);
+        layout.SetRowSpan(previewSection, 4);
+        layout.Controls.Add(CreateSection("卡牌标识", BuildIdentityFields()), 1, 0);
+        layout.Controls.Add(CreateSection("游戏数据", BuildGameplayFields()), 1, 1);
+        layout.Controls.Add(CreateSection("规则文本", BuildRulesEditor()), 1, 2);
+        layout.Controls.Add(CreateSection("提示文本", BuildStringsTab()), 1, 3);
         page.Controls.Add(layout);
         return page;
+    }
+
+    private Control BuildCardImagePreview()
+    {
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = EditorTheme.Surface,
+            Margin = new Padding(0)
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
+
+        cardImagePreview.Dock = DockStyle.Fill;
+        cardImagePreview.BackColor = EditorTheme.Input;
+        cardImagePreview.BorderStyle = BorderStyle.FixedSingle;
+        cardImagePreview.SizeMode = PictureBoxSizeMode.Zoom;
+        cardImagePreview.Margin = new Padding(0, 0, 10, 10);
+
+        cardImageStatusLabel.Dock = DockStyle.Fill;
+        cardImageStatusLabel.ForeColor = EditorTheme.Muted;
+        cardImageStatusLabel.Font = new Font("Microsoft YaHei UI", 8.6f);
+        cardImageStatusLabel.TextAlign = ContentAlignment.TopLeft;
+        cardImageStatusLabel.AutoEllipsis = false;
+
+        layout.Controls.Add(cardImagePreview, 0, 0);
+        layout.Controls.Add(cardImageStatusLabel, 0, 1);
+        return layout;
     }
 
     private Control BuildIdentityFields()
@@ -357,7 +397,7 @@ internal sealed class MainForm : Form
         AddField(fields, "卡图编号", collectorInput, 1, 2);
         AddField(fields, "Oracle ID", oracleIdInput, 2, 0, 3);
 
-        fieldToolTip.SetToolTip(setCodeInput, "卡图目录名，例如 CardImages/MTGB/");
+        fieldToolTip.SetToolTip(setCodeInput, "卡图/脚本系列目录名，例如 卡图/SOS/、脚本/SOS/");
         fieldToolTip.SetToolTip(collectorInput, "系列内的卡图文件编号，例如 MTGB/1.png 中的 1");
         fieldToolTip.SetToolTip(oracleIdInput, "用于关联同一张规则卡牌的不同印刷版本；自制卡可暂时留空。");
         return fields;
@@ -373,11 +413,11 @@ internal sealed class MainForm : Form
             BackColor = EditorTheme.Surface,
             Margin = new Padding(0)
         };
-        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 112));
+        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 128));
         fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
-        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 100));
-        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 136));
+        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 164));
+        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 166));
 
         manaCostInput.PlaceholderText = "例如 {2}{U}、{G/W}";
         AddSingleField(fields, "法术力费用", manaCostInput, 0);
@@ -391,7 +431,7 @@ internal sealed class MainForm : Form
             Margin = new Padding(0, 4, 10, 4)
         };
         typeHost.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        typeHost.RowStyles.Add(new RowStyle(SizeType.Absolute, 25));
+        typeHost.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
 
         cardTypesPanel.Dock = DockStyle.Fill;
         cardTypesPanel.FlowDirection = FlowDirection.LeftToRight;
@@ -420,9 +460,9 @@ internal sealed class MainForm : Form
             Dock = DockStyle.Fill,
             Text = "可组合多种类别；编辑器会同时显示每种类别需要的数值。亲族必须与另一种类别并存。",
             ForeColor = EditorTheme.Muted,
-            Font = new Font("Segoe UI", 8.7f),
+            Font = new Font("Microsoft YaHei UI", 8.6f),
             TextAlign = ContentAlignment.MiddleLeft,
-            AutoEllipsis = true
+            AutoEllipsis = false
         };
         typeHost.Controls.Add(cardTypesPanel, 0, 0);
         typeHost.Controls.Add(typeNote, 0, 1);
@@ -450,8 +490,8 @@ internal sealed class MainForm : Form
         noCharacteristicsLabel = new Label
         {
             AutoSize = false,
-            Width = 520,
-            Height = 52,
+            Width = 430,
+            Height = 58,
             Text = "当前类别没有需要填写的力量、防御力、忠诚或布防数值。",
             ForeColor = EditorTheme.Muted,
             TextAlign = ContentAlignment.MiddleLeft
@@ -470,8 +510,8 @@ internal sealed class MainForm : Form
             Text = text,
             Appearance = Appearance.Button,
             AutoSize = false,
-            Width = 96,
-            Height = 32,
+            Width = 82,
+            Height = 34,
             Margin = new Padding(0, 0, 8, 6),
             TextAlign = ContentAlignment.MiddleCenter,
             FlatStyle = FlatStyle.Flat,
@@ -490,8 +530,8 @@ internal sealed class MainForm : Form
     {
         var border = new Panel
         {
-            Width = 218,
-            Height = 54,
+            Width = 208,
+            Height = 58,
             BackColor = EditorTheme.Border,
             Padding = new Padding(1),
             Margin = new Padding(0, 0, 10, 8)
@@ -505,7 +545,7 @@ internal sealed class MainForm : Form
             Padding = new Padding(10, 8, 10, 8),
             Margin = new Padding(0)
         };
-        body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 78));
+        body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 82));
         body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         var fieldLabel = new Label
         {
@@ -529,7 +569,7 @@ internal sealed class MainForm : Form
         rulesTextInput.AcceptsReturn = true;
         rulesTextInput.AcceptsTab = true;
         rulesTextInput.Dock = DockStyle.Fill;
-        rulesTextInput.Font = new Font("Segoe UI", 10.5f);
+        rulesTextInput.Font = new Font("Microsoft YaHei UI", 10.4f);
         rulesTextInput.Margin = new Padding(0);
         return rulesTextInput;
     }
@@ -549,37 +589,46 @@ internal sealed class MainForm : Form
             RowCount = 2,
             BackColor = EditorTheme.Window
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 106));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-        var top = new Panel
+        var top = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
             BackColor = EditorTheme.Surface,
-            Padding = new Padding(14, 9, 10, 9)
+            Padding = new Padding(16, 10, 12, 10),
+            Margin = new Padding(0)
         };
+        top.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        top.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+
         var help = new Label
         {
             Dock = DockStyle.Fill,
             Text = "为 Lua 效果准备可复用的提示文本。str1 对应索引 0，str2 对应索引 1。",
             ForeColor = EditorTheme.Muted,
-            TextAlign = ContentAlignment.MiddleLeft
+            Font = new Font("Microsoft YaHei UI", 9f),
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = false,
+            Margin = new Padding(0)
         };
         var buttons = new FlowLayoutPanel
         {
-            Dock = DockStyle.Right,
-            Width = 390,
+            Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
             BackColor = EditorTheme.Surface,
-            Padding = new Padding(0, 5, 0, 0)
+            Padding = new Padding(0, 4, 0, 0),
+            Margin = new Padding(0)
         };
-        buttons.Controls.Add(CreateButton("添加", AddPromptString, 78, accent: true));
-        buttons.Controls.Add(CreateButton("删除", DeleteSelectedPromptString, 78, danger: true));
-        buttons.Controls.Add(CreateButton("上移", () => MovePromptString(-1), 78));
-        buttons.Controls.Add(CreateButton("下移", () => MovePromptString(1), 78));
-        top.Controls.Add(help);
-        top.Controls.Add(buttons);
+        buttons.Controls.Add(CreateButton("添加", AddPromptString, 82, accent: true));
+        buttons.Controls.Add(CreateButton("删除", DeleteSelectedPromptString, 82, danger: true));
+        buttons.Controls.Add(CreateButton("上移", () => MovePromptString(-1), 82));
+        buttons.Controls.Add(CreateButton("下移", () => MovePromptString(1), 82));
+        top.Controls.Add(help, 0, 0);
+        top.Controls.Add(buttons, 0, 1);
 
         stringsGrid.Dock = DockStyle.Fill;
         stringsGrid.AllowUserToAddRows = false;
@@ -634,27 +683,27 @@ internal sealed class MainForm : Form
             RowCount = 2,
             BackColor = EditorTheme.Window
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 116));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 158));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var pathPanel = new Panel
         {
             Dock = DockStyle.Fill,
             BackColor = EditorTheme.Surface,
-            Padding = new Padding(14, 10, 12, 8)
+            Padding = new Padding(14, 10, 12, 10)
         };
         var pathLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 3,
-            RowCount = 3,
+            ColumnCount = 2,
+            RowCount = 4,
             BackColor = EditorTheme.Surface
         };
-        pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 88));
+        pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96));
         pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        pathLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 445));
         pathLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-        pathLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+        pathLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        pathLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
         pathLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var pathLabel = new Label
@@ -665,8 +714,8 @@ internal sealed class MainForm : Form
             TextAlign = ContentAlignment.MiddleLeft
         };
         scriptPathInput.Dock = DockStyle.Fill;
-        scriptPathInput.Margin = new Padding(0, 5, 10, 5);
-        scriptPathInput.PlaceholderText = "相对于当前数据库目录，例如 Scripts/Card.lua";
+        scriptPathInput.Margin = new Padding(0, 5, 0, 5);
+        scriptPathInput.PlaceholderText = "相对于 MTGB 根目录，例如 脚本/SOS/m65.lua";
 
         var buttons = new FlowLayoutPanel
         {
@@ -674,12 +723,13 @@ internal sealed class MainForm : Form
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
             BackColor = EditorTheme.Surface,
+            Padding = new Padding(0, 4, 0, 0),
             Margin = new Padding(0)
         };
-        buttons.Controls.Add(CreateButton("选择", BrowseExistingScript, 76));
-        buttons.Controls.Add(CreateButton("新建", CreateNewScript, 76));
+        buttons.Controls.Add(CreateButton("选择", BrowseExistingScript, 72));
+        buttons.Controls.Add(CreateButton("新建", CreateNewScript, 72));
         buttons.Controls.Add(CreateButton("重新加载", ReloadScript, 92));
-        buttons.Controls.Add(CreateButton("保存脚本", () => SaveScriptFile(), 92, accent: true));
+        buttons.Controls.Add(CreateButton("保存脚本", () => SaveScriptFile(), 96, accent: true));
         buttons.Controls.Add(CreateButton("打开目录", OpenScriptFolder, 92));
 
         scriptStatusLabel.Dock = DockStyle.Fill;
@@ -690,19 +740,19 @@ internal sealed class MainForm : Form
         var runtimeNote = new Label
         {
             Dock = DockStyle.Fill,
-            Text = "当前只编辑文件和数据库中的 script_path，不改变 Unity 的 Lua 加载规则。",
+            Text = "脚本按 MTGB/脚本/<系列>/m<卡图编号>.lua 保存，script_path 记录相对 MTGB 根目录的路径。",
             ForeColor = EditorTheme.Muted,
-            Font = new Font("Segoe UI", 8.8f),
-            TextAlign = ContentAlignment.MiddleLeft
+            Font = new Font("Microsoft YaHei UI", 8.6f),
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = false
         };
 
         pathLayout.Controls.Add(pathLabel, 0, 0);
         pathLayout.Controls.Add(scriptPathInput, 1, 0);
-        pathLayout.Controls.Add(buttons, 2, 0);
         pathLayout.Controls.Add(scriptStatusLabel, 1, 1);
-        pathLayout.SetColumnSpan(scriptStatusLabel, 2);
-        pathLayout.Controls.Add(runtimeNote, 0, 2);
-        pathLayout.SetColumnSpan(runtimeNote, 3);
+        pathLayout.Controls.Add(buttons, 1, 2);
+        pathLayout.Controls.Add(runtimeNote, 0, 3);
+        pathLayout.SetColumnSpan(runtimeNote, 2);
         pathPanel.Controls.Add(pathLayout);
 
         luaEditor.Dock = DockStyle.Fill;
@@ -737,8 +787,16 @@ internal sealed class MainForm : Form
             input.TextChanged += (_, _) => MarkCardDirty();
 
         cardNameInput.TextChanged += (_, _) => UpdateCardHeader();
-        setCodeInput.TextChanged += (_, _) => UpdateCardHeader();
-        collectorInput.TextChanged += (_, _) => UpdateCardHeader();
+        setCodeInput.TextChanged += (_, _) =>
+        {
+            UpdateCardHeader();
+            UpdateCardImagePreview();
+        };
+        collectorInput.TextChanged += (_, _) =>
+        {
+            UpdateCardHeader();
+            UpdateCardImagePreview();
+        };
 
         scriptPathInput.TextChanged += (_, _) =>
         {
@@ -768,7 +826,10 @@ internal sealed class MainForm : Form
             if (!ConfirmDiscardOrSave())
                 eventArgs.Cancel = true;
             else
+            {
+                currentCardPreviewImage?.Dispose();
                 database?.Dispose();
+            }
         };
     }
 
@@ -941,7 +1002,9 @@ internal sealed class MainForm : Form
 
         loading = false;
         cardDirty = false;
+        scriptCreatePromptDismissedForCardKey = null;
         UpdateCardHeader();
+        UpdateCardImagePreview();
         LoadScriptFromCurrentPath(silent: true);
         UpdateStatus($"正在编辑 {card.CardKey}", false);
     }
@@ -1167,10 +1230,12 @@ internal sealed class MainForm : Form
         preservedEffects.Clear();
         luaEditor.CodeText = string.Empty;
         loadedScriptFullPath = null;
+        scriptCreatePromptDismissedForCardKey = null;
         loading = false;
         cardDirty = false;
         scriptDirty = false;
         UpdateCardHeader();
+        UpdateCardImagePreview();
         UpdateScriptPathStatus();
     }
 
@@ -1260,6 +1325,254 @@ internal sealed class MainForm : Form
         loading = false;
     }
 
+    private string ContentRootDirectoryPath()
+    {
+        if (database == null) return AppContext.BaseDirectory;
+
+        string databaseDirectory = Path.GetFullPath(database.DirectoryPath);
+        string? directoryName = Path.GetFileName(databaseDirectory);
+        if (directoryName is "数据库" or "Databases" or "Database")
+            return Path.GetDirectoryName(databaseDirectory) ?? databaseDirectory;
+
+        return databaseDirectory;
+    }
+
+    private string CardImagesDirectoryPath()
+    {
+        return Path.Combine(ContentRootDirectoryPath(), "卡图");
+    }
+
+    private string ScriptsDirectoryPath()
+    {
+        return Path.Combine(ContentRootDirectoryPath(), "脚本");
+    }
+
+    private string CurrentScriptDirectoryPath()
+    {
+        return Path.Combine(ScriptsDirectoryPath(), CurrentSetDirectoryName());
+    }
+
+    private string CurrentExistingScriptDirectoryPath()
+    {
+        string current = CurrentScriptDirectoryPath();
+        return Directory.Exists(current) ? current : ScriptsDirectoryPath();
+    }
+
+    private string CurrentSetDirectoryName()
+    {
+        string setCode = setCodeInput.Text.Trim();
+        return IsSafeCardImageToken(setCode) ? setCode : "CUSTOM";
+    }
+
+    private string CurrentCardImageId()
+    {
+        string collectorNumber = collectorInput.Text.Trim();
+        return IsSafeCardImageToken(collectorNumber) ? collectorNumber : ((int)cardIdInput.Value).ToString();
+    }
+
+    private void UpdateCardImagePreview()
+    {
+        if (TryFindCardImagePath(out string? imagePath, out string expectedPath))
+        {
+            SetCardPreviewImage(LoadImageCopy(imagePath));
+            string relativePath = database == null ? imagePath : Path.GetRelativePath(ContentRootDirectoryPath(), imagePath).Replace('\\', '/');
+            cardImageStatusLabel.Text = $"已加载卡图：{relativePath}";
+            cardImageStatusLabel.ForeColor = EditorTheme.Success;
+            return;
+        }
+
+        SetCardPreviewImage(LoadDefaultCardBackImage());
+        cardImageStatusLabel.Text = expectedPath.Length == 0
+            ? "未选择卡牌；显示默认卡背。"
+            : $"未找到卡图，显示默认卡背。\n正在查找：{expectedPath}";
+        cardImageStatusLabel.ForeColor = expectedPath.Length == 0 ? EditorTheme.Muted : EditorTheme.Warning;
+    }
+
+    private bool TryFindCardImagePath(out string imagePath, out string expectedPath)
+    {
+        imagePath = string.Empty;
+        expectedPath = string.Empty;
+        if (database == null) return false;
+
+        string setCode = setCodeInput.Text.Trim();
+        string collectorNumber = collectorInput.Text.Trim();
+        if (!IsSafeCardImageToken(setCode) || !IsSafeCardImageToken(collectorNumber)) return false;
+
+        string cardImagesRoot = CardImagesDirectoryPath();
+        expectedPath = $"{Path.Combine(cardImagesRoot, setCode, collectorNumber + ".png")} 或 {Path.Combine(cardImagesRoot, setCode + " " + collectorNumber + ".png")}";
+        if (!Directory.Exists(cardImagesRoot)) return false;
+
+        string[] supportedExtensions = { ".png", ".jpg", ".jpeg", ".webp" };
+        string[] fileNameCandidates =
+        {
+            collectorNumber,
+            $"{setCode} {collectorNumber}",
+            $"{setCode}_{collectorNumber}",
+            $"{setCode}-{collectorNumber}"
+        };
+
+        foreach (string directory in CandidateCardImageDirectories(cardImagesRoot, setCode))
+        {
+            foreach (string fileName in fileNameCandidates)
+            {
+                if (TryFindImageFile(directory, fileName, supportedExtensions, out imagePath))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<string> CandidateCardImageDirectories(string cardImagesRoot, string setCode)
+    {
+        yield return Path.Combine(cardImagesRoot, setCode);
+        yield return cardImagesRoot;
+
+        foreach (string directory in Directory.EnumerateDirectories(cardImagesRoot))
+        {
+            if (Path.GetFileName(directory).Equals(setCode, StringComparison.OrdinalIgnoreCase))
+                yield return directory;
+        }
+    }
+
+    private static bool TryFindImageFile(
+        string directory,
+        string fileNameWithoutExtension,
+        IEnumerable<string> supportedExtensions,
+        out string imagePath)
+    {
+        imagePath = string.Empty;
+        if (!Directory.Exists(directory)) return false;
+
+        foreach (string extension in supportedExtensions)
+        {
+            string candidate = Path.Combine(directory, fileNameWithoutExtension + extension);
+            if (File.Exists(candidate))
+            {
+                imagePath = candidate;
+                return true;
+            }
+        }
+
+        foreach (string file in Directory.EnumerateFiles(directory))
+        {
+            string extension = Path.GetExtension(file);
+            if (!supportedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase)) continue;
+            if (!Path.GetFileNameWithoutExtension(file).Equals(fileNameWithoutExtension, StringComparison.OrdinalIgnoreCase)) continue;
+
+            imagePath = file;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsSafeCardImageToken(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        return value.IndexOfAny(Path.GetInvalidFileNameChars()) < 0
+               && !value.Contains('/')
+               && !value.Contains('\\');
+    }
+
+    private void SetCardPreviewImage(Image image)
+    {
+        Image? oldImage = currentCardPreviewImage;
+        currentCardPreviewImage = image;
+        cardImagePreview.Image = image;
+        oldImage?.Dispose();
+    }
+
+    private static Image LoadImageCopy(string path)
+    {
+        using Image source = Image.FromFile(path);
+        return new Bitmap(source);
+    }
+
+    private static Image LoadDefaultCardBackImage()
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "Assets", "default-card-back.png");
+        if (File.Exists(path)) return LoadImageCopy(path);
+
+        var bitmap = new Bitmap(265, 370);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.FromArgb(12, 18, 23));
+        using var border = new Pen(EditorTheme.Border, 3);
+        graphics.DrawRectangle(border, 8, 8, bitmap.Width - 16, bitmap.Height - 16);
+        using var titleFont = new Font("Microsoft YaHei UI", 18f, FontStyle.Bold);
+        using var bodyFont = new Font("Microsoft YaHei UI", 10f);
+        TextRenderer.DrawText(graphics, "Magic\nThe Gathering", titleFont, new Rectangle(20, 120, 225, 80), EditorTheme.Text, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        TextRenderer.DrawText(graphics, "默认卡背", bodyFont, new Rectangle(20, 214, 225, 40), EditorTheme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        return bitmap;
+    }
+
+    private void PromptCreateMissingScript()
+    {
+        if (database == null || scriptDirty) return;
+
+        string storedPath = scriptPathInput.Text.Trim();
+        bool hadStoredPath = storedPath.Length > 0;
+        if (!hadStoredPath) storedPath = DefaultScriptStoredPath();
+
+        if (!TryResolveScriptPath(storedPath, out string fullPath, out string error))
+        {
+            if (hadStoredPath)
+                MessageBox.Show(this, error, "无法创建脚本", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (File.Exists(fullPath)) return;
+
+        string promptKey = currentCardKey ?? $"new:{cardIdInput.Value}";
+        if (scriptCreatePromptDismissedForCardKey == promptKey) return;
+
+        string message = hadStoredPath
+            ? $"关联的 Lua 脚本不存在。\n\n{storedPath}\n\n是否现在创建？"
+            : $"这张卡还没有 Lua 脚本。\n\n是否创建 {storedPath}？";
+        if (MessageBox.Show(this, message, "创建 Lua 脚本", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+        {
+            scriptCreatePromptDismissedForCardKey = promptKey;
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+            string scriptText = BuildDefaultScriptText();
+            File.WriteAllText(fullPath, scriptText, new UTF8Encoding(false));
+            scriptPathInput.Text = storedPath;
+            loadedScriptFullPath = fullPath;
+            luaEditor.CodeText = scriptText;
+            scriptDirty = false;
+            scriptCreatePromptDismissedForCardKey = null;
+            UpdateScriptPathStatus();
+            UpdateStatus($"已创建 Lua 脚本：{storedPath}", cardDirty);
+        }
+        catch (Exception exception)
+        {
+            ShowError("无法创建脚本", exception);
+        }
+    }
+
+    private string DefaultScriptStoredPath()
+    {
+        return $"脚本/{CurrentSetDirectoryName()}/{DefaultScriptFileName()}";
+    }
+
+    private string DefaultScriptFileName()
+    {
+        return $"m{CurrentCardImageId()}.lua";
+    }
+
+    private string BuildDefaultScriptText()
+    {
+        string cardName = cardNameInput.Text.Trim();
+        var builder = new StringBuilder();
+        if (cardName.Length > 0) builder.AppendLine($"-- {cardName}");
+        builder.AppendLine("-- TODO: 在这里编写 MTGB 卡牌 Lua 脚本。");
+        return builder.ToString();
+    }
+
     private void BrowseExistingScript()
     {
         if (database == null)
@@ -1272,7 +1585,7 @@ internal sealed class MainForm : Form
         using var dialog = new OpenFileDialog
         {
             Filter = "Lua 脚本 (*.lua)|*.lua|所有文件 (*.*)|*.*",
-            InitialDirectory = database.DirectoryPath,
+            InitialDirectory = CurrentExistingScriptDirectoryPath(),
             CheckFileExists = true
         };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
@@ -1296,13 +1609,15 @@ internal sealed class MainForm : Form
         }
         if (!ConfirmScriptDiscardOrSave()) return;
 
+        Directory.CreateDirectory(CurrentScriptDirectoryPath());
+
         using var dialog = new SaveFileDialog
         {
             Filter = "Lua 脚本 (*.lua)|*.lua",
             DefaultExt = "lua",
             AddExtension = true,
-            InitialDirectory = database.DirectoryPath,
-            FileName = string.IsNullOrWhiteSpace(cardNameInput.Text) ? "card.lua" : SafeFileName(cardNameInput.Text) + ".lua"
+            InitialDirectory = CurrentScriptDirectoryPath(),
+            FileName = DefaultScriptFileName()
         };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
 
@@ -1418,13 +1733,15 @@ internal sealed class MainForm : Form
     private bool ChooseScriptPathForSave()
     {
         if (database == null) return false;
+        Directory.CreateDirectory(CurrentScriptDirectoryPath());
+
         using var dialog = new SaveFileDialog
         {
             Filter = "Lua 脚本 (*.lua)|*.lua",
             DefaultExt = "lua",
             AddExtension = true,
-            InitialDirectory = database.DirectoryPath,
-            FileName = string.IsNullOrWhiteSpace(cardNameInput.Text) ? "card.lua" : SafeFileName(cardNameInput.Text) + ".lua"
+            InitialDirectory = CurrentScriptDirectoryPath(),
+            FileName = DefaultScriptFileName()
         };
         if (dialog.ShowDialog(this) != DialogResult.OK) return false;
 
@@ -1441,7 +1758,7 @@ internal sealed class MainForm : Form
     private void OpenScriptFolder()
     {
         if (database == null) return;
-        string folder = database.DirectoryPath;
+        string folder = ScriptsDirectoryPath();
         if (TryResolveScriptPath(scriptPathInput.Text.Trim(), out string fullPath, out _))
             folder = Path.GetDirectoryName(fullPath) ?? folder;
 
@@ -1476,19 +1793,19 @@ internal sealed class MainForm : Form
         }
         if (Path.IsPathRooted(storedPath))
         {
-            error = "script_path 必须是相对于当前数据库目录的路径，不能保存绝对路径。";
+            error = "script_path 必须是相对于 MTGB 根目录的路径，不能保存绝对路径。";
             return false;
         }
 
         try
         {
-            string root = Path.GetFullPath(database.DirectoryPath);
+            string root = Path.GetFullPath(ContentRootDirectoryPath());
             string candidate = Path.GetFullPath(Path.Combine(root, storedPath.Replace('/', Path.DirectorySeparatorChar)));
             string rootPrefix = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                                 + Path.DirectorySeparatorChar;
             if (!candidate.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
             {
-                error = "当前 Unity 加载规则不允许脚本路径离开数据库所在目录。";
+                error = "当前资源结构不允许脚本路径离开 MTGB 根目录。";
                 return false;
             }
             if (!Path.GetExtension(candidate).Equals(".lua", StringComparison.OrdinalIgnoreCase))
@@ -1519,13 +1836,13 @@ internal sealed class MainForm : Form
 
         try
         {
-            string root = Path.GetFullPath(database.DirectoryPath);
+            string root = Path.GetFullPath(ContentRootDirectoryPath());
             string candidate = Path.GetFullPath(fullPath);
             string rootPrefix = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                                 + Path.DirectorySeparatorChar;
             if (!candidate.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
             {
-                error = "该脚本位于数据库目录之外。当前运行端无法加载这个路径，因此编辑器不会写入。";
+                error = "该脚本位于 MTGB 根目录之外。当前运行端无法加载这个路径，因此编辑器不会写入。";
                 return false;
             }
             if (!Path.GetExtension(candidate).Equals(".lua", StringComparison.OrdinalIgnoreCase))
@@ -1647,7 +1964,7 @@ internal sealed class MainForm : Form
         if (cardList.Columns.Count != 2 || cardList.ClientSize.Width <= 0)
             return;
 
-        const int printingWidth = 118;
+        const int printingWidth = 132;
         cardList.Columns[1].Width = printingWidth;
         cardList.Columns[0].Width = Math.Max(110, cardList.ClientSize.Width - printingWidth - 5);
     }
@@ -1657,14 +1974,15 @@ internal sealed class MainForm : Form
         var button = new Button
         {
             Text = text,
-            Width = 150,
+            Width = 132,
             Height = 36,
             Margin = new Padding(0, 0, 8, 0),
             FlatStyle = FlatStyle.Flat,
             TextAlign = ContentAlignment.MiddleCenter,
             Cursor = Cursors.Hand,
             BackColor = EditorTheme.Surface,
-            ForeColor = EditorTheme.Muted
+            ForeColor = EditorTheme.Muted,
+            Font = new Font("Microsoft YaHei UI", 9.2f)
         };
         button.FlatAppearance.BorderSize = 1;
         button.FlatAppearance.BorderColor = EditorTheme.Border;
@@ -1679,6 +1997,9 @@ internal sealed class MainForm : Form
         if (pageIndex < 0 || pageIndex >= editorPages.Count)
             return;
 
+
+        if (pageIndex == 1)
+            PromptCreateMissingScript();
         selectedEditorPage = pageIndex;
         for (int i = 0; i < editorPages.Count; i++)
             editorPages[i].Visible = i == pageIndex;
@@ -1712,7 +2033,7 @@ internal sealed class MainForm : Form
         using var border = new Pen(EditorTheme.Border);
         e.Graphics.FillRectangle(background, e.Bounds);
         e.Graphics.DrawRectangle(border, e.Bounds.X, e.Bounds.Y, e.Bounds.Width, e.Bounds.Height);
-        using var headerFont = new Font("Segoe UI", 9f, FontStyle.Bold);
+        using var headerFont = new Font("Microsoft YaHei UI", 9f, FontStyle.Bold);
         TextRenderer.DrawText(
             e.Graphics,
             e.Header?.Text ?? string.Empty,
@@ -1790,9 +2111,9 @@ internal sealed class MainForm : Form
             BackColor = EditorTheme.Surface,
             Margin = new Padding(0)
         };
-        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 128));
         fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 128));
         fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         for (int i = 0; i < rows; i++)
             fields.RowStyles.Add(new RowStyle(SizeType.Percent, 100f / rows));
@@ -1812,15 +2133,15 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             BackColor = EditorTheme.Surface,
-            Padding = new Padding(14, 8, 14, 12)
+            Padding = new Padding(16, 10, 16, 14)
         };
         var heading = new Label
         {
             Dock = DockStyle.Top,
-            Height = 31,
+            Height = 34,
             Text = title,
             ForeColor = EditorTheme.Text,
-            Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+            Font = new Font("Microsoft YaHei UI", 10.5f, FontStyle.Bold),
             TextAlign = ContentAlignment.MiddleLeft
         };
         content.Dock = DockStyle.Fill;
@@ -1889,9 +2210,10 @@ internal sealed class MainForm : Form
         {
             Text = text,
             Width = width,
-            Height = 32,
+            Height = 34,
             Margin = new Padding(4, 0, 4, 0),
-            Tag = accent ? "accent" : danger ? "danger" : null
+            Tag = accent ? "accent" : danger ? "danger" : null,
+            Font = new Font("Microsoft YaHei UI", 9f)
         };
         EditorTheme.StyleButton(button, accent, danger);
         button.Click += (_, _) => action();
@@ -1910,7 +2232,7 @@ internal sealed class MainForm : Form
             ForeColor = danger ? Color.FromArgb(255, 164, 164) : accent ? Color.FromArgb(148, 190, 255) : EditorTheme.Text,
             Margin = new Padding(4, 0, 4, 0),
             Padding = new Padding(8, 3, 8, 3),
-            Font = new Font("Segoe UI", 9.5f, accent ? FontStyle.Bold : FontStyle.Regular)
+            Font = new Font("Microsoft YaHei UI", 9.2f, accent ? FontStyle.Bold : FontStyle.Regular)
         };
         button.Click += (_, _) => action();
         return button;
