@@ -1,3 +1,5 @@
+#nullable enable
+
 namespace MTGB.CardDatabaseEditor;
 
 partial class BasicCardEditorView
@@ -25,11 +27,16 @@ partial class BasicCardEditorView
     private TextBox collectorInput = null!;
     private TextBox oracleIdInput = null!;
 
+    private Panel cardTypesSectionBorder = null!;
+    private Panel cardTypesSectionBody = null!;
+    private Label cardTypesSectionHeading = null!;
+
     private Panel gameplaySectionBorder = null!;
     private Panel gameplaySectionBody = null!;
     private Label gameplaySectionHeading = null!;
     private Label manaCostLabel = null!;
     private TextBox manaCostInput = null!;
+    private Button manaSymbolMenuButton = null!;
     private Label cardTypesLabel = null!;
     private CheckBox artifactTypeToggle = null!;
     private CheckBox battleTypeToggle = null!;
@@ -105,11 +112,15 @@ partial class BasicCardEditorView
         collectorInput = new TextBox();
         oracleIdLabel = new Label();
         oracleIdInput = new TextBox();
+        cardTypesSectionBorder = new Panel();
+        cardTypesSectionBody = new Panel();
+        cardTypesSectionHeading = new Label();
         gameplaySectionBorder = new Panel();
         gameplaySectionBody = new Panel();
         gameplaySectionHeading = new Label();
         manaCostLabel = new Label();
         manaCostInput = new TextBox();
+        manaSymbolMenuButton = new Button();
         cardTypesLabel = new Label();
         artifactTypeToggle = new CheckBox();
         battleTypeToggle = new CheckBox();
@@ -159,6 +170,8 @@ partial class BasicCardEditorView
         ((System.ComponentModel.ISupportInitialize)cardImagePreview).BeginInit();
         identitySectionBorder.SuspendLayout();
         identitySectionBody.SuspendLayout();
+        cardTypesSectionBorder.SuspendLayout();
+        cardTypesSectionBody.SuspendLayout();
         gameplaySectionBorder.SuspendLayout();
         gameplaySectionBody.SuspendLayout();
         powerStatHost.SuspendLayout();
@@ -179,6 +192,7 @@ partial class BasicCardEditorView
         // rootScrollPanel
         // 
         rootScrollPanel.AutoScroll = true;
+        rootScrollPanel.AutoScrollMinSize = new Size(1485, 1345);
         rootScrollPanel.BackColor = Color.FromArgb(22, 25, 30);
         rootScrollPanel.Controls.Add(rootCanvas);
         rootScrollPanel.Dock = DockStyle.Fill;
@@ -190,10 +204,10 @@ partial class BasicCardEditorView
         // 
         // rootCanvas
         // 
-        rootCanvas.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         rootCanvas.BackColor = Color.FromArgb(22, 25, 30);
         rootCanvas.Controls.Add(previewSectionBorder);
         rootCanvas.Controls.Add(identitySectionBorder);
+        rootCanvas.Controls.Add(cardTypesSectionBorder);
         rootCanvas.Controls.Add(gameplaySectionBorder);
         rootCanvas.Controls.Add(rulesSectionBorder);
         rootCanvas.Controls.Add(stringsSectionBorder);
@@ -281,11 +295,11 @@ partial class BasicCardEditorView
         identitySectionBody.Controls.Add(collectorInput);
         identitySectionBody.Controls.Add(oracleIdLabel);
         identitySectionBody.Controls.Add(oracleIdInput);
-        identitySectionBody.Location = new Point(4, 2);
-        identitySectionBody.Name = "identitySectionBody";
-        identitySectionBody.Size = new Size(532, 191);
-        identitySectionBody.TabIndex = 0;
         identitySectionBody.Dock = DockStyle.Fill;
+        identitySectionBody.Location = new Point(1, 1);
+        identitySectionBody.Name = "identitySectionBody";
+        identitySectionBody.Size = new Size(538, 195);
+        identitySectionBody.TabIndex = 0;
         // 
         // identitySectionHeading
         // 
@@ -317,7 +331,7 @@ partial class BasicCardEditorView
         cardNameInput.Location = new Point(146, 60);
         cardNameInput.Name = "cardNameInput";
         cardNameInput.PlaceholderText = "例如 Training Island";
-        cardNameInput.Size = new Size(171, 32);
+        cardNameInput.Size = new Size(177, 32);
         cardNameInput.TabIndex = 2;
         cardNameInput.TextChanged += cardNameInput_TextChanged;
         // 
@@ -337,10 +351,10 @@ partial class BasicCardEditorView
         setCodeInput.BackColor = Color.FromArgb(15, 19, 24);
         setCodeInput.BorderStyle = BorderStyle.FixedSingle;
         setCodeInput.ForeColor = Color.FromArgb(232, 236, 242);
-        setCodeInput.Location = new Point(146, 98);
+        setCodeInput.Location = new Point(146, 101);
         setCodeInput.Name = "setCodeInput";
         setCodeInput.PlaceholderText = "例如 MTGB";
-        setCodeInput.Size = new Size(125, 32);
+        setCodeInput.Size = new Size(131, 32);
         setCodeInput.TabIndex = 4;
         fieldToolTip.SetToolTip(setCodeInput, "卡图路径中的系列文件夹，例如 CardImages/MTGB/1.png");
         // 
@@ -348,7 +362,7 @@ partial class BasicCardEditorView
         // 
         collectorLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         collectorLabel.ForeColor = Color.FromArgb(172, 183, 198);
-        collectorLabel.Location = new Point(282, 101);
+        collectorLabel.Location = new Point(288, 101);
         collectorLabel.Name = "collectorLabel";
         collectorLabel.Size = new Size(98, 30);
         collectorLabel.TabIndex = 5;
@@ -361,10 +375,10 @@ partial class BasicCardEditorView
         collectorInput.BackColor = Color.FromArgb(15, 19, 24);
         collectorInput.BorderStyle = BorderStyle.FixedSingle;
         collectorInput.ForeColor = Color.FromArgb(232, 236, 242);
-        collectorInput.Location = new Point(383, 103);
+        collectorInput.Location = new Point(393, 101);
         collectorInput.Name = "collectorInput";
         collectorInput.PlaceholderText = "例如 1、45a";
-        collectorInput.Size = new Size(136, 32);
+        collectorInput.Size = new Size(133, 32);
         collectorInput.TabIndex = 6;
         fieldToolTip.SetToolTip(collectorInput, "卡图文件名，不含扩展名");
         collectorInput.TextChanged += collectorInput_TextChanged;
@@ -385,23 +399,65 @@ partial class BasicCardEditorView
         oracleIdInput.BackColor = Color.FromArgb(15, 19, 24);
         oracleIdInput.BorderStyle = BorderStyle.FixedSingle;
         oracleIdInput.ForeColor = Color.FromArgb(232, 236, 242);
-        oracleIdInput.Location = new Point(148, 141);
+        oracleIdInput.Location = new Point(146, 141);
         oracleIdInput.Name = "oracleIdInput";
         oracleIdInput.PlaceholderText = "同一规则卡牌的共享标识，可留空";
-        oracleIdInput.Size = new Size(280, 32);
+        oracleIdInput.Size = new Size(238, 32);
         oracleIdInput.TabIndex = 8;
         fieldToolTip.SetToolTip(oracleIdInput, "同一规则卡牌的不同印刷版本可共享；自制卡可留空");
         // 
+        // cardTypesSectionBorder
+        // 
+        cardTypesSectionBorder.BackColor = Color.FromArgb(62, 70, 82);
+        cardTypesSectionBorder.Controls.Add(cardTypesSectionBody);
+        cardTypesSectionBorder.Location = new Point(312, 0);
+        cardTypesSectionBorder.Name = "cardTypesSectionBorder";
+        cardTypesSectionBorder.Padding = new Padding(1);
+        cardTypesSectionBorder.Size = new Size(583, 560);
+        cardTypesSectionBorder.TabIndex = 2;
+        // 
+        // cardTypesSectionBody
+        // 
+        cardTypesSectionBody.BackColor = Color.FromArgb(28, 33, 41);
+        cardTypesSectionBody.Controls.Add(cardTypesSectionHeading);
+        cardTypesSectionBody.Controls.Add(cardTypesLabel);
+        cardTypesSectionBody.Controls.Add(artifactTypeToggle);
+        cardTypesSectionBody.Controls.Add(battleTypeToggle);
+        cardTypesSectionBody.Controls.Add(creatureTypeToggle);
+        cardTypesSectionBody.Controls.Add(enchantmentTypeToggle);
+        cardTypesSectionBody.Controls.Add(instantTypeToggle);
+        cardTypesSectionBody.Controls.Add(kindredTypeToggle);
+        cardTypesSectionBody.Controls.Add(landTypeToggle);
+        cardTypesSectionBody.Controls.Add(planeswalkerTypeToggle);
+        cardTypesSectionBody.Controls.Add(sorceryTypeToggle);
+        cardTypesSectionBody.Controls.Add(typeNote);
+        cardTypesSectionBody.Dock = DockStyle.Fill;
+        cardTypesSectionBody.Location = new Point(1, 1);
+        cardTypesSectionBody.Name = "cardTypesSectionBody";
+        cardTypesSectionBody.Size = new Size(581, 558);
+        cardTypesSectionBody.TabIndex = 0;
+        // 
+        // cardTypesSectionHeading
+        // 
+        cardTypesSectionHeading.AutoSize = true;
+        cardTypesSectionHeading.Font = new Font("Microsoft YaHei UI", 11.5F, FontStyle.Bold);
+        cardTypesSectionHeading.ForeColor = Color.FromArgb(232, 236, 242);
+        cardTypesSectionHeading.Location = new Point(18, 17);
+        cardTypesSectionHeading.Name = "cardTypesSectionHeading";
+        cardTypesSectionHeading.Size = new Size(106, 31);
+        cardTypesSectionHeading.TabIndex = 0;
+        cardTypesSectionHeading.Text = "卡牌类型";
+        // 
         // gameplaySectionBorder
         // 
-        gameplaySectionBorder.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        gameplaySectionBorder.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         gameplaySectionBorder.BackColor = Color.FromArgb(62, 70, 82);
         gameplaySectionBorder.Controls.Add(gameplaySectionBody);
-        gameplaySectionBorder.Location = new Point(312, 202);
+        gameplaySectionBorder.Location = new Point(907, 202);
         gameplaySectionBorder.Name = "gameplaySectionBorder";
         gameplaySectionBorder.Padding = new Padding(1);
-        gameplaySectionBorder.Size = new Size(1135, 358);
-        gameplaySectionBorder.TabIndex = 2;
+        gameplaySectionBorder.Size = new Size(540, 358);
+        gameplaySectionBorder.TabIndex = 3;
         // 
         // gameplaySectionBody
         // 
@@ -409,17 +465,7 @@ partial class BasicCardEditorView
         gameplaySectionBody.Controls.Add(gameplaySectionHeading);
         gameplaySectionBody.Controls.Add(manaCostLabel);
         gameplaySectionBody.Controls.Add(manaCostInput);
-        gameplaySectionBody.Controls.Add(cardTypesLabel);
-        gameplaySectionBody.Controls.Add(artifactTypeToggle);
-        gameplaySectionBody.Controls.Add(battleTypeToggle);
-        gameplaySectionBody.Controls.Add(creatureTypeToggle);
-        gameplaySectionBody.Controls.Add(enchantmentTypeToggle);
-        gameplaySectionBody.Controls.Add(instantTypeToggle);
-        gameplaySectionBody.Controls.Add(kindredTypeToggle);
-        gameplaySectionBody.Controls.Add(landTypeToggle);
-        gameplaySectionBody.Controls.Add(planeswalkerTypeToggle);
-        gameplaySectionBody.Controls.Add(sorceryTypeToggle);
-        gameplaySectionBody.Controls.Add(typeNote);
+        gameplaySectionBody.Controls.Add(manaSymbolMenuButton);
         gameplaySectionBody.Controls.Add(characteristicsLabel);
         gameplaySectionBody.Controls.Add(powerStatHost);
         gameplaySectionBody.Controls.Add(toughnessStatHost);
@@ -429,7 +475,7 @@ partial class BasicCardEditorView
         gameplaySectionBody.Dock = DockStyle.Fill;
         gameplaySectionBody.Location = new Point(1, 1);
         gameplaySectionBody.Name = "gameplaySectionBody";
-        gameplaySectionBody.Size = new Size(1133, 356);
+        gameplaySectionBody.Size = new Size(538, 356);
         gameplaySectionBody.TabIndex = 0;
         gameplaySectionBody.Paint += gameplaySectionBody_Paint;
         // 
@@ -438,42 +484,56 @@ partial class BasicCardEditorView
         gameplaySectionHeading.AutoSize = true;
         gameplaySectionHeading.Font = new Font("Microsoft YaHei UI", 11.5F, FontStyle.Bold);
         gameplaySectionHeading.ForeColor = Color.FromArgb(232, 236, 242);
-        gameplaySectionHeading.Location = new Point(14, 10);
+        gameplaySectionHeading.Location = new Point(17, 17);
         gameplaySectionHeading.Name = "gameplaySectionHeading";
         gameplaySectionHeading.Size = new Size(106, 31);
         gameplaySectionHeading.TabIndex = 0;
-        gameplaySectionHeading.Text = "游戏数据";
+        gameplaySectionHeading.Text = "数值 / 法术力";
         // 
         // manaCostLabel
         // 
         manaCostLabel.ForeColor = Color.FromArgb(172, 183, 198);
-        manaCostLabel.Location = new Point(14, 49);
+        manaCostLabel.Location = new Point(27, 66);
         manaCostLabel.Name = "manaCostLabel";
-        manaCostLabel.Size = new Size(88, 30);
+        manaCostLabel.Size = new Size(90, 30);
         manaCostLabel.TabIndex = 1;
         manaCostLabel.Text = "法术力费用";
         manaCostLabel.TextAlign = ContentAlignment.MiddleLeft;
         // 
         // manaCostInput
         // 
-        manaCostInput.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        manaCostInput.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         manaCostInput.BackColor = Color.FromArgb(15, 19, 24);
         manaCostInput.BorderStyle = BorderStyle.FixedSingle;
         manaCostInput.ForeColor = Color.FromArgb(232, 236, 242);
-        manaCostInput.Location = new Point(108, 50);
+        manaCostInput.Location = new Point(120, 66);
         manaCostInput.Name = "manaCostInput";
         manaCostInput.PlaceholderText = "例如 {2}{U}、{G/W}";
-        manaCostInput.Size = new Size(1011, 32);
+        manaCostInput.Size = new Size(260, 32);
         manaCostInput.TabIndex = 2;
+        // 
+        // manaSymbolMenuButton
+        // 
+        manaSymbolMenuButton.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        manaSymbolMenuButton.BackColor = Color.FromArgb(36, 41, 49);
+        manaSymbolMenuButton.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
+        manaSymbolMenuButton.FlatStyle = FlatStyle.Flat;
+        manaSymbolMenuButton.ForeColor = Color.FromArgb(232, 236, 242);
+        manaSymbolMenuButton.Location = new Point(390, 65);
+        manaSymbolMenuButton.Name = "manaSymbolMenuButton";
+        manaSymbolMenuButton.Size = new Size(118, 34);
+        manaSymbolMenuButton.TabIndex = 3;
+        manaSymbolMenuButton.Text = "插入符号 ▾";
+        manaSymbolMenuButton.UseVisualStyleBackColor = false;
         // 
         // cardTypesLabel
         // 
         cardTypesLabel.ForeColor = Color.FromArgb(172, 183, 198);
-        cardTypesLabel.Location = new Point(14, 94);
+        cardTypesLabel.Location = new Point(22, 68);
         cardTypesLabel.Name = "cardTypesLabel";
-        cardTypesLabel.Size = new Size(88, 30);
+        cardTypesLabel.Size = new Size(520, 30);
         cardTypesLabel.TabIndex = 3;
-        cardTypesLabel.Text = "卡牌类型";
+        cardTypesLabel.Text = "选择一个或多个类别";
         cardTypesLabel.TextAlign = ContentAlignment.MiddleLeft;
         // 
         // artifactTypeToggle
@@ -483,7 +543,7 @@ partial class BasicCardEditorView
         artifactTypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
         artifactTypeToggle.FlatStyle = FlatStyle.Flat;
         artifactTypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
-        artifactTypeToggle.Location = new Point(108, 91);
+        artifactTypeToggle.Location = new Point(22, 108);
         artifactTypeToggle.Name = "artifactTypeToggle";
         artifactTypeToggle.Size = new Size(72, 34);
         artifactTypeToggle.TabIndex = 4;
@@ -498,7 +558,7 @@ partial class BasicCardEditorView
         battleTypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
         battleTypeToggle.FlatStyle = FlatStyle.Flat;
         battleTypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
-        battleTypeToggle.Location = new Point(186, 91);
+        battleTypeToggle.Location = new Point(100, 108);
         battleTypeToggle.Name = "battleTypeToggle";
         battleTypeToggle.Size = new Size(72, 34);
         battleTypeToggle.TabIndex = 5;
@@ -513,7 +573,7 @@ partial class BasicCardEditorView
         creatureTypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
         creatureTypeToggle.FlatStyle = FlatStyle.Flat;
         creatureTypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
-        creatureTypeToggle.Location = new Point(264, 91);
+        creatureTypeToggle.Location = new Point(178, 108);
         creatureTypeToggle.Name = "creatureTypeToggle";
         creatureTypeToggle.Size = new Size(72, 34);
         creatureTypeToggle.TabIndex = 6;
@@ -528,7 +588,7 @@ partial class BasicCardEditorView
         enchantmentTypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
         enchantmentTypeToggle.FlatStyle = FlatStyle.Flat;
         enchantmentTypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
-        enchantmentTypeToggle.Location = new Point(342, 91);
+        enchantmentTypeToggle.Location = new Point(256, 108);
         enchantmentTypeToggle.Name = "enchantmentTypeToggle";
         enchantmentTypeToggle.Size = new Size(72, 34);
         enchantmentTypeToggle.TabIndex = 7;
@@ -543,7 +603,7 @@ partial class BasicCardEditorView
         instantTypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
         instantTypeToggle.FlatStyle = FlatStyle.Flat;
         instantTypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
-        instantTypeToggle.Location = new Point(420, 91);
+        instantTypeToggle.Location = new Point(334, 108);
         instantTypeToggle.Name = "instantTypeToggle";
         instantTypeToggle.Size = new Size(72, 34);
         instantTypeToggle.TabIndex = 8;
@@ -558,7 +618,7 @@ partial class BasicCardEditorView
         kindredTypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
         kindredTypeToggle.FlatStyle = FlatStyle.Flat;
         kindredTypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
-        kindredTypeToggle.Location = new Point(498, 91);
+        kindredTypeToggle.Location = new Point(412, 108);
         kindredTypeToggle.Name = "kindredTypeToggle";
         kindredTypeToggle.Size = new Size(72, 34);
         kindredTypeToggle.TabIndex = 9;
@@ -573,7 +633,7 @@ partial class BasicCardEditorView
         landTypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
         landTypeToggle.FlatStyle = FlatStyle.Flat;
         landTypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
-        landTypeToggle.Location = new Point(576, 91);
+        landTypeToggle.Location = new Point(22, 152);
         landTypeToggle.Name = "landTypeToggle";
         landTypeToggle.Size = new Size(72, 34);
         landTypeToggle.TabIndex = 10;
@@ -588,7 +648,7 @@ partial class BasicCardEditorView
         planeswalkerTypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
         planeswalkerTypeToggle.FlatStyle = FlatStyle.Flat;
         planeswalkerTypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
-        planeswalkerTypeToggle.Location = new Point(654, 91);
+        planeswalkerTypeToggle.Location = new Point(100, 152);
         planeswalkerTypeToggle.Name = "planeswalkerTypeToggle";
         planeswalkerTypeToggle.Size = new Size(86, 34);
         planeswalkerTypeToggle.TabIndex = 11;
@@ -603,7 +663,7 @@ partial class BasicCardEditorView
         sorceryTypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
         sorceryTypeToggle.FlatStyle = FlatStyle.Flat;
         sorceryTypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
-        sorceryTypeToggle.Location = new Point(746, 91);
+        sorceryTypeToggle.Location = new Point(192, 152);
         sorceryTypeToggle.Name = "sorceryTypeToggle";
         sorceryTypeToggle.Size = new Size(72, 34);
         sorceryTypeToggle.TabIndex = 12;
@@ -613,21 +673,21 @@ partial class BasicCardEditorView
         // 
         // typeNote
         // 
-        typeNote.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        typeNote.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         typeNote.ForeColor = Color.FromArgb(172, 183, 198);
-        typeNote.Location = new Point(108, 137);
+        typeNote.Location = new Point(22, 208);
         typeNote.Name = "typeNote";
-        typeNote.Size = new Size(1011, 42);
+        typeNote.Size = new Size(520, 96);
         typeNote.TabIndex = 13;
         typeNote.Text = "可组合多种类别；编辑器会同时显示每种类别需要的数值。亲族必须与另一种类别并存。";
-        typeNote.TextAlign = ContentAlignment.MiddleLeft;
+        typeNote.TextAlign = ContentAlignment.TopLeft;
         // 
         // characteristicsLabel
         // 
         characteristicsLabel.ForeColor = Color.FromArgb(172, 183, 198);
-        characteristicsLabel.Location = new Point(14, 195);
+        characteristicsLabel.Location = new Point(27, 122);
         characteristicsLabel.Name = "characteristicsLabel";
-        characteristicsLabel.Size = new Size(88, 30);
+        characteristicsLabel.Size = new Size(90, 30);
         characteristicsLabel.TabIndex = 14;
         characteristicsLabel.Text = "类别数值";
         characteristicsLabel.TextAlign = ContentAlignment.MiddleLeft;
@@ -638,9 +698,9 @@ partial class BasicCardEditorView
         powerStatHost.BorderStyle = BorderStyle.FixedSingle;
         powerStatHost.Controls.Add(powerLabel);
         powerStatHost.Controls.Add(powerInput);
-        powerStatHost.Location = new Point(108, 190);
+        powerStatHost.Location = new Point(120, 122);
         powerStatHost.Name = "powerStatHost";
-        powerStatHost.Size = new Size(180, 48);
+        powerStatHost.Size = new Size(170, 48);
         powerStatHost.TabIndex = 15;
         // 
         // powerLabel
@@ -658,11 +718,11 @@ partial class BasicCardEditorView
         powerInput.BackColor = Color.FromArgb(15, 19, 24);
         powerInput.BorderStyle = BorderStyle.FixedSingle;
         powerInput.ForeColor = Color.FromArgb(232, 236, 242);
-        powerInput.Location = new Point(84, 8);
+        powerInput.Location = new Point(86, 8);
         powerInput.Maximum = new decimal(new int[] { 9999, 0, 0, 0 });
         powerInput.Minimum = new decimal(new int[] { 9999, 0, 0, int.MinValue });
         powerInput.Name = "powerInput";
-        powerInput.Size = new Size(84, 32);
+        powerInput.Size = new Size(72, 32);
         powerInput.TabIndex = 1;
         // 
         // toughnessStatHost
@@ -671,9 +731,9 @@ partial class BasicCardEditorView
         toughnessStatHost.BorderStyle = BorderStyle.FixedSingle;
         toughnessStatHost.Controls.Add(toughnessLabel);
         toughnessStatHost.Controls.Add(toughnessInput);
-        toughnessStatHost.Location = new Point(298, 190);
+        toughnessStatHost.Location = new Point(300, 122);
         toughnessStatHost.Name = "toughnessStatHost";
-        toughnessStatHost.Size = new Size(180, 48);
+        toughnessStatHost.Size = new Size(170, 48);
         toughnessStatHost.TabIndex = 16;
         // 
         // toughnessLabel
@@ -691,11 +751,11 @@ partial class BasicCardEditorView
         toughnessInput.BackColor = Color.FromArgb(15, 19, 24);
         toughnessInput.BorderStyle = BorderStyle.FixedSingle;
         toughnessInput.ForeColor = Color.FromArgb(232, 236, 242);
-        toughnessInput.Location = new Point(84, 8);
+        toughnessInput.Location = new Point(86, 8);
         toughnessInput.Maximum = new decimal(new int[] { 9999, 0, 0, 0 });
         toughnessInput.Minimum = new decimal(new int[] { 9999, 0, 0, int.MinValue });
         toughnessInput.Name = "toughnessInput";
-        toughnessInput.Size = new Size(84, 32);
+        toughnessInput.Size = new Size(72, 32);
         toughnessInput.TabIndex = 1;
         // 
         // loyaltyStatHost
@@ -704,9 +764,9 @@ partial class BasicCardEditorView
         loyaltyStatHost.BorderStyle = BorderStyle.FixedSingle;
         loyaltyStatHost.Controls.Add(loyaltyLabel);
         loyaltyStatHost.Controls.Add(loyaltyInput);
-        loyaltyStatHost.Location = new Point(488, 190);
+        loyaltyStatHost.Location = new Point(120, 180);
         loyaltyStatHost.Name = "loyaltyStatHost";
-        loyaltyStatHost.Size = new Size(190, 48);
+        loyaltyStatHost.Size = new Size(170, 48);
         loyaltyStatHost.TabIndex = 17;
         // 
         // loyaltyLabel
@@ -724,11 +784,11 @@ partial class BasicCardEditorView
         loyaltyInput.BackColor = Color.FromArgb(15, 19, 24);
         loyaltyInput.BorderStyle = BorderStyle.FixedSingle;
         loyaltyInput.ForeColor = Color.FromArgb(232, 236, 242);
-        loyaltyInput.Location = new Point(94, 8);
+        loyaltyInput.Location = new Point(86, 8);
         loyaltyInput.Maximum = new decimal(new int[] { 9999, 0, 0, 0 });
         loyaltyInput.Minimum = new decimal(new int[] { 9999, 0, 0, int.MinValue });
         loyaltyInput.Name = "loyaltyInput";
-        loyaltyInput.Size = new Size(84, 32);
+        loyaltyInput.Size = new Size(72, 32);
         loyaltyInput.TabIndex = 1;
         // 
         // defenseStatHost
@@ -737,9 +797,9 @@ partial class BasicCardEditorView
         defenseStatHost.BorderStyle = BorderStyle.FixedSingle;
         defenseStatHost.Controls.Add(defenseLabel);
         defenseStatHost.Controls.Add(defenseInput);
-        defenseStatHost.Location = new Point(688, 190);
+        defenseStatHost.Location = new Point(300, 180);
         defenseStatHost.Name = "defenseStatHost";
-        defenseStatHost.Size = new Size(180, 48);
+        defenseStatHost.Size = new Size(170, 48);
         defenseStatHost.TabIndex = 18;
         // 
         // defenseLabel
@@ -757,20 +817,20 @@ partial class BasicCardEditorView
         defenseInput.BackColor = Color.FromArgb(15, 19, 24);
         defenseInput.BorderStyle = BorderStyle.FixedSingle;
         defenseInput.ForeColor = Color.FromArgb(232, 236, 242);
-        defenseInput.Location = new Point(84, 8);
+        defenseInput.Location = new Point(86, 8);
         defenseInput.Maximum = new decimal(new int[] { 9999, 0, 0, 0 });
         defenseInput.Minimum = new decimal(new int[] { 9999, 0, 0, int.MinValue });
         defenseInput.Name = "defenseInput";
-        defenseInput.Size = new Size(84, 32);
+        defenseInput.Size = new Size(72, 32);
         defenseInput.TabIndex = 1;
         // 
         // noCharacteristicsLabel
         // 
-        noCharacteristicsLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        noCharacteristicsLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         noCharacteristicsLabel.ForeColor = Color.FromArgb(172, 183, 198);
-        noCharacteristicsLabel.Location = new Point(108, 245);
+        noCharacteristicsLabel.Location = new Point(120, 245);
         noCharacteristicsLabel.Name = "noCharacteristicsLabel";
-        noCharacteristicsLabel.Size = new Size(1011, 66);
+        noCharacteristicsLabel.Size = new Size(390, 66);
         noCharacteristicsLabel.TabIndex = 19;
         noCharacteristicsLabel.Text = "当前类别没有需要填写的力量、防御力、忠诚或布防数值。";
         // 
@@ -790,9 +850,10 @@ partial class BasicCardEditorView
         rulesSectionBody.BackColor = Color.FromArgb(28, 33, 41);
         rulesSectionBody.Controls.Add(rulesSectionHeading);
         rulesSectionBody.Controls.Add(rulesTextInput);
+        rulesSectionBody.Dock = DockStyle.Fill;
         rulesSectionBody.Location = new Point(1, 1);
         rulesSectionBody.Name = "rulesSectionBody";
-        rulesSectionBody.Size = new Size(1445, 199);
+        rulesSectionBody.Size = new Size(1445, 348);
         rulesSectionBody.TabIndex = 0;
         rulesSectionBody.Paint += rulesSectionBody_Paint;
         // 
@@ -817,7 +878,7 @@ partial class BasicCardEditorView
         rulesTextInput.Multiline = true;
         rulesTextInput.Name = "rulesTextInput";
         rulesTextInput.ScrollBars = ScrollBars.Vertical;
-        rulesTextInput.Size = new Size(1157, 152);
+        rulesTextInput.Size = new Size(1422, 288);
         rulesTextInput.TabIndex = 1;
         // 
         // stringsSectionBorder
@@ -985,6 +1046,9 @@ partial class BasicCardEditorView
         identitySectionBorder.ResumeLayout(false);
         identitySectionBody.ResumeLayout(false);
         identitySectionBody.PerformLayout();
+        cardTypesSectionBorder.ResumeLayout(false);
+        cardTypesSectionBody.ResumeLayout(false);
+        cardTypesSectionBody.PerformLayout();
         gameplaySectionBorder.ResumeLayout(false);
         gameplaySectionBody.ResumeLayout(false);
         gameplaySectionBody.PerformLayout();

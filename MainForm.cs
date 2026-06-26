@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Text;
@@ -114,7 +114,7 @@ internal sealed partial class MainForm : Form
         Size = new Size(1480, 920);
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
-        WindowState = FormWindowState.Maximized;
+        WindowState = FormWindowState.Normal;
         Font = new Font("Microsoft YaHei UI", 9.8f);
         BackColor = EditorTheme.Window;
         ForeColor = EditorTheme.Text;
@@ -258,45 +258,11 @@ internal sealed partial class MainForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 3,
+            RowCount = 2,
             BackColor = EditorTheme.Window
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 84));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-        var header = new Panel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = EditorTheme.Surface,
-            Padding = new Padding(20, 10, 20, 9),
-            Margin = new Padding(0, 0, 0, 6)
-        };
-        var headerLayout = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 2,
-            BackColor = EditorTheme.Surface,
-            Margin = new Padding(0)
-        };
-        headerLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-        headerLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-        cardHeaderTitle.Dock = DockStyle.Fill;
-        cardHeaderTitle.Font = new Font("Microsoft YaHei UI", 14.5f, FontStyle.Bold);
-        cardHeaderTitle.ForeColor = EditorTheme.Text;
-        cardHeaderTitle.TextAlign = ContentAlignment.MiddleLeft;
-        cardHeaderTitle.AutoEllipsis = true;
-
-        cardHeaderMeta.Dock = DockStyle.Fill;
-        cardHeaderMeta.ForeColor = EditorTheme.Muted;
-        cardHeaderMeta.TextAlign = ContentAlignment.MiddleLeft;
-        cardHeaderMeta.AutoEllipsis = true;
-
-        headerLayout.Controls.Add(cardHeaderTitle, 0, 0);
-        headerLayout.Controls.Add(cardHeaderMeta, 0, 1);
-        header.Controls.Add(headerLayout);
 
         var navigation = new Panel
         {
@@ -339,9 +305,8 @@ internal sealed partial class MainForm : Form
             navigationButtons.Controls.Add(button);
         }
 
-        layout.Controls.Add(header, 0, 0);
-        layout.Controls.Add(navigation, 0, 1);
-        layout.Controls.Add(editorPageHost, 0, 2);
+        layout.Controls.Add(navigation, 0, 0);
+        layout.Controls.Add(editorPageHost, 0, 1);
         ShowEditorPage(0);
         return layout;
     }
