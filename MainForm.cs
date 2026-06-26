@@ -1,52 +1,32 @@
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Text;
 
 namespace MTGB.CardDatabaseEditor;
 
-internal sealed class MainForm : Form
+internal sealed partial class MainForm : Form
 {
+    private readonly BasicCardEditorView basicEditorView = new();
     private readonly TextBox searchBox = new();
     private readonly ListView cardList = new();
     private readonly Label cardCountLabel = new();
     private readonly Label cardHeaderTitle = new();
     private readonly Label cardHeaderMeta = new();
-    private readonly PictureBox cardImagePreview = new();
-    private readonly Label cardImageStatusLabel = new();
     private readonly Panel editorPageHost = new();
     private readonly List<Control> editorPages = new();
     private readonly List<Button> editorPageButtons = new();
     private int selectedEditorPage;
 
     private readonly NumericUpDown cardIdInput = new();
-    private readonly TextBox cardNameInput = new();
-    private readonly TextBox oracleIdInput = new();
-    private readonly TextBox setCodeInput = new();
-    private readonly TextBox collectorInput = new();
-    private readonly FlowLayoutPanel cardTypesPanel = new();
-    private readonly List<TypeToggle> cardTypeToggles = new();
-    private readonly TextBox manaCostInput = new();
-    private readonly NumericUpDown powerInput = new();
-    private readonly NumericUpDown toughnessInput = new();
-    private readonly NumericUpDown loyaltyInput = new();
-    private readonly NumericUpDown defenseInput = new();
-    private readonly TextBox rulesTextInput = new();
-    private readonly ToolTip fieldToolTip = new();
-    private readonly FlowLayoutPanel characteristicFields = new();
-    private Control? powerStatHost;
-    private Control? toughnessStatHost;
-    private Control? loyaltyStatHost;
-    private Control? defenseStatHost;
-    private Label? noCharacteristicsLabel;
-
-    private readonly DataGridView stringsGrid = new();
-
     private readonly TextBox scriptPathInput = new();
     private readonly Label scriptStatusLabel = new();
     private readonly LuaCodeEditor luaEditor = new();
 
     private readonly ToolStrip toolStrip = new();
     private readonly ToolStripStatusLabel statusLabel = new();
+    private readonly SplitContainer mainSplitContainer = new();
+    private readonly StatusStrip statusStrip = new();
 
     private CardDatabaseService? database;
     private List<CardSummary> summaries = new();
@@ -59,8 +39,75 @@ internal sealed class MainForm : Form
     private bool scriptDirty;
     private bool loading;
     private bool suppressSelection;
+    private PictureBox cardImagePreview =>
+    basicEditorView.CardImagePreview;
+
+    private Label cardImageStatusLabel =>
+        basicEditorView.CardImageStatusLabel;
+
+    private TextBox cardNameInput =>
+        basicEditorView.CardNameInput;
+
+    private TextBox oracleIdInput =>
+        basicEditorView.OracleIdInput;
+
+    private TextBox setCodeInput =>
+        basicEditorView.SetCodeInput;
+
+    private TextBox collectorInput =>
+        basicEditorView.CollectorInput;
+
+    private TextBox manaCostInput =>
+        basicEditorView.ManaCostInput;
+
+    private NumericUpDown powerInput =>
+        basicEditorView.PowerInput;
+
+    private NumericUpDown toughnessInput =>
+        basicEditorView.ToughnessInput;
+
+    private NumericUpDown loyaltyInput =>
+        basicEditorView.LoyaltyInput;
+
+    private NumericUpDown defenseInput =>
+        basicEditorView.DefenseInput;
+
+    private TextBox rulesTextInput =>
+        basicEditorView.RulesTextInput;
+
+    private DataGridView stringsGrid =>
+        basicEditorView.StringsGrid;
+
+
+    public MainForm() : this(null)
+    {
+    }
 
     public MainForm(string? initialDatabase)
+    {
+        InitializeComponent();
+
+        EditorTheme.Apply(this);
+        ApplyControlSpecificTheme();
+
+        if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
+        {
+            UpdateStatus("设计器预览：运行时会加载数据库、卡图和脚本。", false);
+            return;
+        }
+
+        HookEvents();
+
+        if (initialDatabase != null)
+            OpenDatabase(initialDatabase);
+        else
+        {
+            ClearForm();
+            UpdateStatus("打开或新建一个 .mtgbdb 数据库。", false);
+        }
+    }
+
+    private void InitializeComponent()
     {
         Text = "MTGB 卡牌数据编辑器";
         MinimumSize = new Size(1180, 760);
@@ -73,62 +120,49 @@ internal sealed class MainForm : Form
         ForeColor = EditorTheme.Text;
         KeyPreview = true;
 
+        mainSplitContainer.Dock = DockStyle.Fill;
+        mainSplitContainer.FixedPanel = FixedPanel.Panel1;
+        // SplitContainer validates SplitterDistance against its current Size.
+        // Give it a realistic design-time size before applying the panel limits;
+        // otherwise the default 150px width can make the form crash at startup.
+        mainSplitContainer.Size = new Size(1200, 700);
+        mainSplitContainer.SplitterDistance = 350;
+        mainSplitContainer.Panel1MinSize = 270;
+        mainSplitContainer.Panel2MinSize = 650;
+        mainSplitContainer.SplitterWidth = 6;
+        mainSplitContainer.Panel1.Padding = new Padding(12);
+        mainSplitContainer.Panel2.Padding = new Padding(12);
+
+        Controls.Add(mainSplitContainer);
+        Controls.Add(statusStrip);
+        Controls.Add(toolStrip);
+
         BuildUi();
-        HookEvents();
-        EditorTheme.Apply(this);
-        ApplyControlSpecificTheme();
-
-        if (initialDatabase != null)
-            OpenDatabase(initialDatabase);
-        else
-        {
-            ClearForm();
-            UpdateStatus("打开或新建一个 .mtgbdb 数据库。", false);
-        }
     }
-
     private void BuildUi()
     {
         BuildToolbar();
 
-        var statusStrip = new StatusStrip
-        {
-            BackColor = EditorTheme.Surface,
-            ForeColor = EditorTheme.Muted,
-            Font = new Font("Microsoft YaHei UI", 9.2f),
-            SizingGrip = false,
-            Renderer = new ToolStripProfessionalRenderer(new DarkColorTable())
-        };
+        statusStrip.Items.Clear();
+        statusStrip.BackColor = EditorTheme.Surface;
+        statusStrip.ForeColor = EditorTheme.Muted;
+        statusStrip.Font = new Font("Microsoft YaHei UI", 9.2f);
+        statusStrip.SizingGrip = false;
+        statusStrip.Renderer = new ToolStripProfessionalRenderer(new DarkColorTable());
         statusStrip.Items.Add(statusLabel);
 
-        var split = new SplitContainer
-        {
-            Dock = DockStyle.Fill,
-            FixedPanel = FixedPanel.Panel1,
-            // SplitContainer validates SplitterDistance against its current Size.
-            // Give it a realistic design-time size before applying the panel limits;
-            // otherwise the default 150px width can make the form crash at startup.
-            Size = new Size(1200, 700),
-            SplitterDistance = 350,
-            Panel1MinSize = 270,
-            Panel2MinSize = 650,
-            SplitterWidth = 6,
-            BackColor = EditorTheme.Border
-        };
-        split.Panel1.Padding = new Padding(12);
-        split.Panel2.Padding = new Padding(12);
-        split.Panel1.BackColor = EditorTheme.Window;
-        split.Panel2.BackColor = EditorTheme.Window;
-        split.Panel1.Controls.Add(BuildCardBrowser());
-        split.Panel2.Controls.Add(BuildEditor());
-
-        Controls.Add(split);
-        Controls.Add(statusStrip);
-        Controls.Add(toolStrip);
+        mainSplitContainer.Panel1.Controls.Clear();
+        mainSplitContainer.Panel2.Controls.Clear();
+        mainSplitContainer.Panel1.BackColor = EditorTheme.Window;
+        mainSplitContainer.Panel2.BackColor = EditorTheme.Window;
+        mainSplitContainer.BackColor = EditorTheme.Border;
+        mainSplitContainer.Panel1.Controls.Add(BuildCardBrowser());
+        mainSplitContainer.Panel2.Controls.Add(BuildEditor());
     }
 
     private void BuildToolbar()
     {
+        toolStrip.Items.Clear();
         toolStrip.Dock = DockStyle.Top;
         toolStrip.GripStyle = ToolStripGripStyle.Hidden;
         toolStrip.Padding = new Padding(10, 6, 10, 6);
@@ -288,7 +322,7 @@ internal sealed class MainForm : Form
 
         editorPages.Clear();
         editorPageButtons.Clear();
-        editorPages.Add(BuildBasicTab());
+        editorPages.Add(basicEditorView);
         editorPages.Add(BuildLuaTab());
 
         string[] pageNames = { "基本信息", "Lua 脚本" };
@@ -310,362 +344,6 @@ internal sealed class MainForm : Form
         layout.Controls.Add(editorPageHost, 0, 2);
         ShowEditorPage(0);
         return layout;
-    }
-
-    private Control BuildBasicTab()
-    {
-        var page = new Panel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = EditorTheme.Window,
-            AutoScroll = true,
-            Padding = new Padding(12, 10, 12, 12),
-            AutoScrollMargin = new Size(0, 16)
-        };
-
-        var layout = new TableLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            ColumnCount = 2,
-            RowCount = 4,
-            BackColor = EditorTheme.Window,
-            Margin = new Padding(0)
-        };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 312));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 210));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 450));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 370));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 320));
-
-        Control previewSection = CreateSection("卡图预览", BuildCardImagePreview());
-        layout.Controls.Add(previewSection, 0, 0);
-        layout.SetRowSpan(previewSection, 4);
-        layout.Controls.Add(CreateSection("卡牌标识", BuildIdentityFields()), 1, 0);
-        layout.Controls.Add(CreateSection("游戏数据", BuildGameplayFields()), 1, 1);
-        layout.Controls.Add(CreateSection("规则文本", BuildRulesEditor()), 1, 2);
-        layout.Controls.Add(CreateSection("提示文本", BuildStringsTab()), 1, 3);
-        page.Controls.Add(layout);
-        return page;
-    }
-
-    private Control BuildCardImagePreview()
-    {
-        var layout = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 2,
-            BackColor = EditorTheme.Surface,
-            Margin = new Padding(0)
-        };
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
-
-        cardImagePreview.Dock = DockStyle.Fill;
-        cardImagePreview.BackColor = EditorTheme.Input;
-        cardImagePreview.BorderStyle = BorderStyle.FixedSingle;
-        cardImagePreview.SizeMode = PictureBoxSizeMode.Zoom;
-        cardImagePreview.Margin = new Padding(0, 0, 10, 10);
-
-        cardImageStatusLabel.Dock = DockStyle.Fill;
-        cardImageStatusLabel.ForeColor = EditorTheme.Muted;
-        cardImageStatusLabel.Font = new Font("Microsoft YaHei UI", 8.6f);
-        cardImageStatusLabel.TextAlign = ContentAlignment.TopLeft;
-        cardImageStatusLabel.AutoEllipsis = false;
-
-        layout.Controls.Add(cardImagePreview, 0, 0);
-        layout.Controls.Add(cardImageStatusLabel, 0, 1);
-        return layout;
-    }
-
-    private Control BuildIdentityFields()
-    {
-        var fields = CreateFieldsTable(3);
-        cardIdInput.Minimum = 1;
-        cardIdInput.Maximum = int.MaxValue;
-
-        cardNameInput.PlaceholderText = "例如 Training Island";
-        oracleIdInput.PlaceholderText = "同一规则卡牌的共享标识，可留空";
-        setCodeInput.PlaceholderText = "例如 MTGB";
-        collectorInput.PlaceholderText = "例如 1、45a";
-
-        AddField(fields, "卡名", cardNameInput, 0, 0, 3);
-        AddField(fields, "系列代号", setCodeInput, 1, 0);
-        AddField(fields, "卡图编号", collectorInput, 1, 2);
-        AddField(fields, "Oracle ID", oracleIdInput, 2, 0, 3);
-
-        fieldToolTip.SetToolTip(setCodeInput, "卡图/脚本系列目录名，例如 卡图/SOS/、脚本/SOS/");
-        fieldToolTip.SetToolTip(collectorInput, "系列内的卡图文件编号，例如 MTGB/1.png 中的 1");
-        fieldToolTip.SetToolTip(oracleIdInput, "用于关联同一张规则卡牌的不同印刷版本；自制卡可暂时留空。");
-        return fields;
-    }
-
-    private Control BuildGameplayFields()
-    {
-        var fields = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 3,
-            BackColor = EditorTheme.Surface,
-            Margin = new Padding(0)
-        };
-        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 128));
-        fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
-        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 164));
-        fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 166));
-
-        manaCostInput.PlaceholderText = "例如 {2}{U}、{G/W}";
-        AddSingleField(fields, "法术力费用", manaCostInput, 0);
-
-        var typeHost = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 2,
-            BackColor = EditorTheme.Surface,
-            Margin = new Padding(0, 4, 10, 4)
-        };
-        typeHost.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        typeHost.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
-
-        cardTypesPanel.Dock = DockStyle.Fill;
-        cardTypesPanel.FlowDirection = FlowDirection.LeftToRight;
-        cardTypesPanel.WrapContents = true;
-        cardTypesPanel.AutoScroll = false;
-        cardTypesPanel.BackColor = EditorTheme.Surface;
-        cardTypesPanel.Margin = new Padding(0);
-        cardTypesPanel.Padding = new Padding(0, 2, 0, 0);
-
-        foreach ((CardTypeFlags flag, string name) in CardTypeNames())
-        {
-            CheckBox toggle = CreateTypeToggle(name);
-            var typeToggle = new TypeToggle(flag, toggle);
-            cardTypeToggles.Add(typeToggle);
-            toggle.CheckedChanged += (_, _) =>
-            {
-                UpdateTypeToggleAppearance(typeToggle);
-                MarkCardDirty();
-                UpdateStatFields();
-            };
-            cardTypesPanel.Controls.Add(toggle);
-        }
-
-        var typeNote = new Label
-        {
-            Dock = DockStyle.Fill,
-            Text = "可组合多种类别；编辑器会同时显示每种类别需要的数值。亲族必须与另一种类别并存。",
-            ForeColor = EditorTheme.Muted,
-            Font = new Font("Microsoft YaHei UI", 8.6f),
-            TextAlign = ContentAlignment.MiddleLeft,
-            AutoEllipsis = false
-        };
-        typeHost.Controls.Add(cardTypesPanel, 0, 0);
-        typeHost.Controls.Add(typeNote, 0, 1);
-        AddSingleField(fields, "卡牌类型", typeHost, 1);
-
-        characteristicFields.Dock = DockStyle.Fill;
-        characteristicFields.FlowDirection = FlowDirection.LeftToRight;
-        characteristicFields.WrapContents = true;
-        characteristicFields.BackColor = EditorTheme.Surface;
-        characteristicFields.Margin = new Padding(0, 5, 10, 3);
-        characteristicFields.Padding = new Padding(0);
-
-        powerInput.Minimum = toughnessInput.Minimum = loyaltyInput.Minimum = defenseInput.Minimum = -999;
-        powerInput.Maximum = toughnessInput.Maximum = loyaltyInput.Maximum = defenseInput.Maximum = 999;
-
-        powerStatHost = CreateCharacteristicField("力量", powerInput);
-        toughnessStatHost = CreateCharacteristicField("防御力", toughnessInput);
-        loyaltyStatHost = CreateCharacteristicField("初始忠诚", loyaltyInput);
-        defenseStatHost = CreateCharacteristicField("布防值", defenseInput);
-        characteristicFields.Controls.Add(powerStatHost);
-        characteristicFields.Controls.Add(toughnessStatHost);
-        characteristicFields.Controls.Add(loyaltyStatHost);
-        characteristicFields.Controls.Add(defenseStatHost);
-
-        noCharacteristicsLabel = new Label
-        {
-            AutoSize = false,
-            Width = 430,
-            Height = 58,
-            Text = "当前类别没有需要填写的力量、防御力、忠诚或布防数值。",
-            ForeColor = EditorTheme.Muted,
-            TextAlign = ContentAlignment.MiddleLeft
-        };
-        characteristicFields.Controls.Add(noCharacteristicsLabel);
-        AddSingleField(fields, "类别数值", characteristicFields, 2);
-
-        UpdateStatFields();
-        return fields;
-    }
-
-    private CheckBox CreateTypeToggle(string text)
-    {
-        var toggle = new CheckBox
-        {
-            Text = text,
-            Appearance = Appearance.Button,
-            AutoSize = false,
-            Width = 82,
-            Height = 34,
-            Margin = new Padding(0, 0, 8, 6),
-            TextAlign = ContentAlignment.MiddleCenter,
-            FlatStyle = FlatStyle.Flat,
-            Cursor = Cursors.Hand,
-            BackColor = EditorTheme.Input,
-            ForeColor = EditorTheme.Muted
-        };
-        toggle.FlatAppearance.BorderSize = 1;
-        toggle.FlatAppearance.BorderColor = EditorTheme.Border;
-        toggle.FlatAppearance.MouseOverBackColor = EditorTheme.SurfaceRaised;
-        toggle.FlatAppearance.MouseDownBackColor = EditorTheme.Selection;
-        return toggle;
-    }
-
-    private Control CreateCharacteristicField(string label, NumericUpDown input)
-    {
-        var border = new Panel
-        {
-            Width = 208,
-            Height = 58,
-            BackColor = EditorTheme.Border,
-            Padding = new Padding(1),
-            Margin = new Padding(0, 0, 10, 8)
-        };
-        var body = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 1,
-            BackColor = EditorTheme.Input,
-            Padding = new Padding(10, 8, 10, 8),
-            Margin = new Padding(0)
-        };
-        body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 82));
-        body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        var fieldLabel = new Label
-        {
-            Text = label,
-            Dock = DockStyle.Fill,
-            ForeColor = EditorTheme.Text,
-            TextAlign = ContentAlignment.MiddleLeft
-        };
-        input.Dock = DockStyle.Fill;
-        input.Margin = new Padding(0);
-        body.Controls.Add(fieldLabel, 0, 0);
-        body.Controls.Add(input, 1, 0);
-        border.Controls.Add(body);
-        return border;
-    }
-
-    private Control BuildRulesEditor()
-    {
-        rulesTextInput.Multiline = true;
-        rulesTextInput.ScrollBars = ScrollBars.Vertical;
-        rulesTextInput.AcceptsReturn = true;
-        rulesTextInput.AcceptsTab = true;
-        rulesTextInput.Dock = DockStyle.Fill;
-        rulesTextInput.Font = new Font("Microsoft YaHei UI", 10.4f);
-        rulesTextInput.Margin = new Padding(0);
-        return rulesTextInput;
-    }
-
-    private Control BuildStringsTab()
-    {
-        var tab = new Panel
-        {
-            BackColor = EditorTheme.Window,
-            Padding = new Padding(12)
-        };
-
-        var layout = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 2,
-            BackColor = EditorTheme.Window
-        };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 106));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-        var top = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 2,
-            BackColor = EditorTheme.Surface,
-            Padding = new Padding(16, 10, 12, 10),
-            Margin = new Padding(0)
-        };
-        top.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        top.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-
-        var help = new Label
-        {
-            Dock = DockStyle.Fill,
-            Text = "为 Lua 效果准备可复用的提示文本。str1 对应索引 0，str2 对应索引 1。",
-            ForeColor = EditorTheme.Muted,
-            Font = new Font("Microsoft YaHei UI", 9f),
-            TextAlign = ContentAlignment.MiddleLeft,
-            AutoEllipsis = false,
-            Margin = new Padding(0)
-        };
-        var buttons = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = false,
-            BackColor = EditorTheme.Surface,
-            Padding = new Padding(0, 4, 0, 0),
-            Margin = new Padding(0)
-        };
-        buttons.Controls.Add(CreateButton("添加", AddPromptString, 82, accent: true));
-        buttons.Controls.Add(CreateButton("删除", DeleteSelectedPromptString, 82, danger: true));
-        buttons.Controls.Add(CreateButton("上移", () => MovePromptString(-1), 82));
-        buttons.Controls.Add(CreateButton("下移", () => MovePromptString(1), 82));
-        top.Controls.Add(help, 0, 0);
-        top.Controls.Add(buttons, 0, 1);
-
-        stringsGrid.Dock = DockStyle.Fill;
-        stringsGrid.AllowUserToAddRows = false;
-        stringsGrid.AllowUserToDeleteRows = false;
-        stringsGrid.AllowUserToResizeRows = false;
-        stringsGrid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-        stringsGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-        stringsGrid.MultiSelect = false;
-        stringsGrid.EditMode = DataGridViewEditMode.EditOnEnter;
-        stringsGrid.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "StringName",
-            HeaderText = "标识",
-            ReadOnly = true,
-            FillWeight = 18,
-            SortMode = DataGridViewColumnSortMode.NotSortable
-        });
-        stringsGrid.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "StringIndex",
-            HeaderText = "Lua 索引",
-            ReadOnly = true,
-            FillWeight = 18,
-            SortMode = DataGridViewColumnSortMode.NotSortable
-        });
-        stringsGrid.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "StringText",
-            HeaderText = "提示文本",
-            FillWeight = 100,
-            SortMode = DataGridViewColumnSortMode.NotSortable
-        });
-
-        layout.Controls.Add(top, 0, 0);
-        layout.Controls.Add(stringsGrid, 0, 1);
-        tab.Controls.Add(layout);
-        return tab;
     }
 
     private Control BuildLuaTab()
@@ -764,9 +442,27 @@ internal sealed class MainForm : Form
 
     private void HookEvents()
     {
-        searchBox.TextChanged += (_, _) => RefreshCardList(currentCardKey);
-        cardList.SelectedIndexChanged += (_, _) => CardSelectionChanged();
-        cardList.DoubleClick += (_, _) => ShowEditorPage(0);
+        basicEditorView.ViewChanged +=
+        (_, _) => MarkCardDirty();
+
+        basicEditorView.AddPromptRequested +=
+            (_, _) => AddPromptString();
+
+        basicEditorView.DeletePromptRequested +=
+            (_, _) => DeleteSelectedPromptString();
+
+        basicEditorView.MovePromptRequested +=
+            direction => MovePromptString(direction);
+
+        searchBox.TextChanged +=
+            (_, _) => RefreshCardList(currentCardKey);
+
+        cardList.SelectedIndexChanged +=
+            (_, _) => CardSelectionChanged();
+
+        cardList.DoubleClick +=
+            (_, _) => ShowEditorPage(0);
+
         cardList.DrawColumnHeader += DrawCardListHeader;
         cardList.DrawItem += (_, e) =>
         {
@@ -840,8 +536,6 @@ internal sealed class MainForm : Form
         cardList.BackColor = EditorTheme.Input;
         cardList.ForeColor = EditorTheme.Text;
         scriptStatusLabel.ForeColor = EditorTheme.Muted;
-        foreach (TypeToggle typeToggle in cardTypeToggles)
-            UpdateTypeToggleAppearance(typeToggle);
         UpdateEditorPageButtons();
     }
 
@@ -989,9 +683,7 @@ internal sealed class MainForm : Form
         rulesTextInput.Text = card.RulesText;
         scriptPathInput.Text = card.ScriptPath;
 
-        foreach (TypeToggle typeToggle in cardTypeToggles)
-            typeToggle.Toggle.Checked = card.Types.HasFlag(typeToggle.Flag);
-        UpdateStatFields(card.Types);
+        basicEditorView.SelectedTypes = card.Types;
 
         preservedEffects.Clear();
         preservedEffects.AddRange(card.Effects.Select(effect => effect.Clone()));
@@ -1030,9 +722,7 @@ internal sealed class MainForm : Form
             : Math.Min(int.MaxValue, summaries.Max(card => card.CardId) + 1L);
         setCodeInput.Text = "CUSTOM";
         collectorInput.Text = NextCollectorNumber();
-        int creatureIndex = IndexOfType(CardTypeFlags.Creature);
-        if (creatureIndex >= 0) cardTypeToggles[creatureIndex].Toggle.Checked = true;
-        UpdateStatFields(CardTypeFlags.Creature);
+        basicEditorView.SelectedTypes = CardTypeFlags.Creature;
         loading = false;
 
         cardDirty = true;
@@ -1223,9 +913,7 @@ internal sealed class MainForm : Form
         defenseInput.Value = 0;
         rulesTextInput.Clear();
         scriptPathInput.Clear();
-        foreach (TypeToggle typeToggle in cardTypeToggles)
-            typeToggle.Toggle.Checked = false;
-        UpdateStatFields(CardTypeFlags.None);
+        basicEditorView.SelectedTypes = CardTypeFlags.None;
         stringsGrid.Rows.Clear();
         preservedEffects.Clear();
         luaEditor.CodeText = string.Empty;
@@ -1241,39 +929,15 @@ internal sealed class MainForm : Form
 
     private CardTypeFlags ReadTypes()
     {
-        CardTypeFlags result = CardTypeFlags.None;
-        foreach (TypeToggle typeToggle in cardTypeToggles)
-        {
-            if (typeToggle.Toggle.Checked)
-                result |= typeToggle.Flag;
-        }
-        return result;
+        return basicEditorView.SelectedTypes;
     }
 
-    private void UpdateStatFields(CardTypeFlags? typesOverride = null)
+    private void UpdateStatFields(
+     CardTypeFlags? typesOverride = null)
     {
-        CardTypeFlags types = typesOverride ?? ReadTypes();
-        bool isCreature = types.HasFlag(CardTypeFlags.Creature);
-        bool isPlaneswalker = types.HasFlag(CardTypeFlags.Planeswalker);
-        bool isBattle = types.HasFlag(CardTypeFlags.Battle);
-
-        if (powerStatHost != null) powerStatHost.Visible = isCreature;
-        if (toughnessStatHost != null) toughnessStatHost.Visible = isCreature;
-        if (loyaltyStatHost != null) loyaltyStatHost.Visible = isPlaneswalker;
-        if (defenseStatHost != null) defenseStatHost.Visible = isBattle;
-        if (noCharacteristicsLabel != null)
-            noCharacteristicsLabel.Visible = !isCreature && !isPlaneswalker && !isBattle;
+        basicEditorView.RefreshStatFields(typesOverride);
     }
 
-    private int IndexOfType(CardTypeFlags target)
-    {
-        for (int i = 0; i < cardTypeToggles.Count; i++)
-        {
-            if (cardTypeToggles[i].Flag == target)
-                return i;
-        }
-        return -1;
-    }
 
     private void AddPromptString()
     {
@@ -1867,8 +1531,6 @@ internal sealed class MainForm : Form
         {
             scriptStatusLabel.Text = "打开数据库后才能解析脚本路径。";
             scriptStatusLabel.ForeColor = EditorTheme.Muted;
-        foreach (TypeToggle typeToggle in cardTypeToggles)
-            UpdateTypeToggleAppearance(typeToggle);
         UpdateEditorPageButtons();
             return;
         }
@@ -1876,8 +1538,6 @@ internal sealed class MainForm : Form
         {
             scriptStatusLabel.Text = "尚未指定 Lua 脚本。";
             scriptStatusLabel.ForeColor = EditorTheme.Muted;
-        foreach (TypeToggle typeToggle in cardTypeToggles)
-            UpdateTypeToggleAppearance(typeToggle);
         UpdateEditorPageButtons();
             return;
         }

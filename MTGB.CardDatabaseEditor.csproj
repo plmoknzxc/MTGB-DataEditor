@@ -14,4 +14,10 @@
     <None Include="schema.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Assets\default-card-back.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>
