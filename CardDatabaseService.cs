@@ -4,7 +4,7 @@ namespace MTGB.CardDatabaseEditor;
 
 internal sealed class CardDatabaseService : IDisposable
 {
-    public const int SupportedSchemaVersion = 1;
+    public const int SupportedSchemaVersion = 2;
 
     private readonly NativeSqlite database;
 
@@ -73,7 +73,7 @@ ORDER BY name COLLATE NOCASE, set_code, collector_number;", row =>
         CardRecord? card = null;
         database.Query(@"
 SELECT card_key, card_id, oracle_id, set_code, collector_number, name,
-       type_flags, mana_cost, rules_text, power, toughness, script_path, enabled
+       type_flags, mana_cost, rules_text, power, toughness, script_path, enabled, supertype_flags, subtypes 
 FROM cards WHERE card_key = ? LIMIT 1;", row =>
         {
             card = new CardRecord
@@ -90,7 +90,9 @@ FROM cards WHERE card_key = ? LIMIT 1;", row =>
                 Power = row.Int32(9),
                 Toughness = row.Int32(10),
                 ScriptPath = row.String(11),
-                Enabled = row.Int32(12) != 0
+                Enabled = row.Int32(12) != 0,
+                Supertypes = (CardSupertypeFlags)row.Int32(13),
+                Subtypes = row.String(14)
             };
         }, cardKey);
 
@@ -140,6 +142,15 @@ FROM card_strings WHERE card_key = ? ORDER BY string_index;", row =>
             });
         }, cardKey);
 
+        loadedCard.MultipartID = String.Empty;
+        database.Query(@"
+SELECT child_key 
+FROM multipart WHERE card_key = ?;", row =>
+        {
+            // TODO multiply multipart support
+            loadedCard.MultipartID = row.String(0);
+        }, cardKey);
+
         return loadedCard;
     }
 
@@ -155,8 +166,8 @@ FROM card_strings WHERE card_key = ? ORDER BY string_index;", row =>
             {
                 database.ExecuteNonQuery(@"
 INSERT INTO cards(card_key, card_id, oracle_id, set_code, collector_number, name,
-                  type_flags, mana_cost, rules_text, power, toughness, script_path, enabled)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+                  type_flags, mana_cost, rules_text, power, toughness, script_path, enabled, supertype_flags, subtypes)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
                     newKey,
                     card.CardId,
                     card.OracleId.Trim(),
@@ -169,7 +180,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
                     card.Power,
                     card.Toughness,
                     card.ScriptPath.Trim(),
-                    card.Enabled);
+                    card.Enabled,
+                    card.Supertypes,
+                    card.Subtypes);
             }
             else
             {
@@ -181,7 +194,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
                 int changed = database.ExecuteNonQuery(@"
 UPDATE cards SET card_key = ?, card_id = ?, oracle_id = ?, set_code = ?, collector_number = ?,
                  name = ?, type_flags = ?, mana_cost = ?, rules_text = ?, power = ?, toughness = ?,
-                 script_path = ?, enabled = ?
+                 script_path = ?, enabled = ?, supertype_flags = ?, subtypes = ? 
 WHERE card_key = ?;",
                     newKey,
                     card.CardId,
@@ -196,6 +209,8 @@ WHERE card_key = ?;",
                     card.Toughness,
                     card.ScriptPath.Trim(),
                     card.Enabled,
+                    card.Supertypes,
+                    card.Subtypes,
                     card.OriginalCardKey);
 
                 if (changed != 1)
@@ -231,6 +246,20 @@ VALUES (?, ?, ?);",
                     text.Text);
             }
 
+            if (!String.IsNullOrEmpty(card.MultipartID)) {
+                // FIXME delete whole chain
+                database.ExecuteNonQuery(@"
+DELETE FROM multipart 
+WHERE (card_key == ? OR card_key == ?);",
+                    newKey,
+                    card.OriginalCardKey ?? String.Empty);
+                database.ExecuteNonQuery(@"
+INSERT INTO multipart(card_key, child_key) 
+VALUES (?, ?);",
+                    newKey,
+                    card.MultipartID);
+            }
+
             database.Execute("COMMIT;");
             card.OriginalCardKey = newKey;
         }
@@ -244,6 +273,7 @@ VALUES (?, ?, ?);",
     public void Delete(string cardKey)
     {
         database.ExecuteNonQuery("DELETE FROM cards WHERE card_key = ?;", cardKey);
+        // TODO delete multipart chain
     }
 
     public DatabaseValidationResult ValidateDatabase()

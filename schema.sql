@@ -19,6 +19,8 @@ CREATE TABLE cards (
     toughness INTEGER NOT NULL DEFAULT 0,
     script_path TEXT NOT NULL DEFAULT '',
     enabled INTEGER NOT NULL DEFAULT 1,
+    supertype_flags INTEGER NOT NULL,
+    subtypes TEXT,
     UNIQUE (set_code, collector_number)
 );
 
@@ -49,6 +51,13 @@ CREATE TABLE card_characteristics (
     loyalty INTEGER NOT NULL DEFAULT 0,
     defense INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (card_key) REFERENCES cards(card_key) ON DELETE CASCADE
+);
+
+-- 储存副特征和双面牌特征
+CREATE TABLE multipart (
+    card_key TEXT PRIMARY KEY,
+    child_key TEXT,
+    FOREIGN KEY (card_key) REFERENCES cards(card_key)
 );
 
 CREATE INDEX cards_name_index ON cards(name);

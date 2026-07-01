@@ -3,6 +3,7 @@ namespace MTGB.CardDatabaseEditor;
 public partial class BasicCardEditorView : UserControl
 {
     private readonly List<TypeToggle> cardTypeToggles = new();
+    private readonly List<SupertypeToggle> cardSupertypeToggles = new();
 
     public event EventHandler? ViewChanged;
     public event EventHandler? AddPromptRequested;
@@ -34,6 +35,12 @@ public partial class BasicCardEditorView : UserControl
         RegisterTypeToggle(CardTypeFlags.Land, landTypeToggle);
         RegisterTypeToggle(CardTypeFlags.Planeswalker, planeswalkerTypeToggle);
         RegisterTypeToggle(CardTypeFlags.Sorcery, sorceryTypeToggle);
+
+        RegisterSupertypeToggle(CardSupertypeFlags.Basic, basicSupertypeToggle);
+        RegisterSupertypeToggle(CardSupertypeFlags.Legendary, legendarySupertypeToggle);
+        RegisterSupertypeToggle(CardSupertypeFlags.Ongoing, ongoingSupertypeToggle);
+        RegisterSupertypeToggle(CardSupertypeFlags.Snow, snowSupertypeToggle);
+        RegisterSupertypeToggle(CardSupertypeFlags.World, worldSupertypeToggle);
 
         addPromptButton.Click += (_, _) =>
             AddPromptRequested?.Invoke(this, EventArgs.Empty);
@@ -167,6 +174,33 @@ public partial class BasicCardEditorView : UserControl
             !isCreature && !isPlaneswalker && !isBattle;
     }
 
+    private void RegisterSupertypeToggle(CardSupertypeFlags flag, CheckBox toggle)
+    {
+        var typeToggle = new SupertypeToggle(flag, toggle);
+        cardSupertypeToggles.Add(typeToggle);
+        
+        toggle.CheckedChanged += (_, _) =>
+        {
+            UpdateSupertypeToggleAppearance(typeToggle);
+            ViewChanged?.Invoke(this, EventArgs.Empty);
+        };
+        
+        UpdateSupertypeToggleAppearance(typeToggle);
+    }
+    private static void UpdateSupertypeToggleAppearance(SupertypeToggle typeToggle)
+    {
+        bool selected = typeToggle.Toggle.Checked;
+        typeToggle.Toggle.BackColor = selected
+        ? EditorTheme.Selection
+        : EditorTheme.Input;
+        typeToggle.Toggle.ForeColor = selected
+        ? Color.White
+        : EditorTheme.Muted;
+        typeToggle.Toggle.FlatAppearance.BorderColor = selected
+        ? EditorTheme.Accent
+        : EditorTheme.Border;
+    }
+
     private void ShowAllCharacteristicFieldsForDesigner()
     {
         powerStatHost.Visible = true;
@@ -188,6 +222,18 @@ public partial class BasicCardEditorView : UserControl
 
         return result;
     }
+    private CardSupertypeFlags ReadSupertypes()
+    {
+        CardSupertypeFlags result = CardSupertypeFlags.None;
+
+        foreach (SupertypeToggle typeToggle in cardSupertypeToggles)
+        {
+            if (typeToggle.Toggle.Checked)
+                result |= typeToggle.Flag;
+        }
+
+        return result;
+    }
 
     private bool IsDesignerHosted()
     {
@@ -202,9 +248,11 @@ public partial class BasicCardEditorView : UserControl
 
     internal TextBox CardNameInput => cardNameInput;
     internal TextBox OracleIdInput => oracleIdInput;
+    internal TextBox MultipartInput => multipartInput;
     internal TextBox SetCodeInput => setCodeInput;
     internal TextBox CollectorInput => collectorInput;
     internal TextBox ManaCostInput => manaCostInput;
+    internal TextBox SubtypesInput => cardSubtypesInput;
     internal TextBox RulesTextInput => rulesTextInput;
 
     internal NumericUpDown PowerInput => powerInput;
@@ -226,6 +274,20 @@ public partial class BasicCardEditorView : UserControl
             }
 
             UpdateStatFields(value);
+        }
+    }
+
+    internal CardSupertypeFlags SelectedSupertypes
+    {
+        get => ReadSupertypes();
+        set
+        {
+            foreach (SupertypeToggle typeToggle in cardSupertypeToggles)
+            {
+                typeToggle.Toggle.Checked =
+                value.HasFlag(typeToggle.Flag);
+            }
+
         }
     }
 
@@ -267,4 +329,9 @@ public partial class BasicCardEditorView : UserControl
     private sealed record TypeToggle(
         CardTypeFlags Flag,
         CheckBox Toggle);
+
+    private sealed record SupertypeToggle(
+        CardSupertypeFlags Flag,
+        CheckBox Toggle);
+
 }

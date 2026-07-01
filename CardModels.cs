@@ -15,6 +15,17 @@ internal enum CardTypeFlags
     Sorcery = 1 << 8
 }
 
+[Flags]
+internal enum CardSupertypeFlags
+{
+    None = 0,
+    Basic = 1 << 0,
+    Legendary = 1 << 1,
+    Ongoing = 1 << 2,
+    Snow = 1 << 3,
+    World = 1 << 4
+}
+
 internal sealed class CardSummary
 {
     public required string CardKey { get; init; }
@@ -42,6 +53,9 @@ internal sealed class CardRecord
     public int Defense { get; set; }
     public string ScriptPath { get; set; } = string.Empty;
     public bool Enabled { get; set; } = true;
+    public CardSupertypeFlags Supertypes { get; set; }
+    public string Subtypes { get; set; } = string.Empty;
+    public string MultipartID { get; set; } = string.Empty;
 
     // 旧版效果数据暂不在界面中显示，但会原样保留，避免保存卡牌时丢失数据。
     public List<CardEffectRecord> Effects { get; } = new();

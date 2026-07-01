@@ -22,10 +22,12 @@ partial class BasicCardEditorView
     private Label setCodeLabel = null!;
     private Label collectorLabel = null!;
     private Label oracleIdLabel = null!;
+    private Label multipartLabel = null!;
     private TextBox cardNameInput = null!;
     private TextBox setCodeInput = null!;
     private TextBox collectorInput = null!;
     private TextBox oracleIdInput = null!;
+    private TextBox multipartInput = null!;
 
     private Panel cardTypesSectionBorder = null!;
     private Panel cardTypesSectionBody = null!;
@@ -47,6 +49,14 @@ partial class BasicCardEditorView
     private CheckBox landTypeToggle = null!;
     private CheckBox planeswalkerTypeToggle = null!;
     private CheckBox sorceryTypeToggle = null!;
+    private Label cardSupertypesLabel = null!;
+    private CheckBox basicSupertypeToggle = null!;
+    private CheckBox legendarySupertypeToggle = null!;
+    private CheckBox ongoingSupertypeToggle = null!;
+    private CheckBox snowSupertypeToggle = null!;
+    private CheckBox worldSupertypeToggle = null!;
+    private Label cardSubtypesLabel = null!;
+    private TextBox cardSubtypesInput = null!;
     private Label typeNote = null!;
     private Label characteristicsLabel = null!;
     private Panel powerStatHost = null!;
@@ -112,6 +122,8 @@ partial class BasicCardEditorView
         collectorInput = new TextBox();
         oracleIdLabel = new Label();
         oracleIdInput = new TextBox();
+        multipartLabel = new Label();
+        multipartInput = new TextBox();
         cardTypesSectionBorder = new Panel();
         cardTypesSectionBody = new Panel();
         cardTypesSectionHeading = new Label();
@@ -132,6 +144,14 @@ partial class BasicCardEditorView
         planeswalkerTypeToggle = new CheckBox();
         sorceryTypeToggle = new CheckBox();
         typeNote = new Label();
+        cardSupertypesLabel = new Label();
+        basicSupertypeToggle = new CheckBox();
+        legendarySupertypeToggle = new CheckBox();
+        ongoingSupertypeToggle = new CheckBox();
+        snowSupertypeToggle = new CheckBox();
+        worldSupertypeToggle = new CheckBox();
+        cardSubtypesLabel = new Label();
+        cardSubtypesInput = new TextBox();
         characteristicsLabel = new Label();
         powerStatHost = new Panel();
         powerLabel = new Label();
@@ -280,7 +300,7 @@ partial class BasicCardEditorView
         identitySectionBorder.Location = new Point(907, 1);
         identitySectionBorder.Name = "identitySectionBorder";
         identitySectionBorder.Padding = new Padding(1);
-        identitySectionBorder.Size = new Size(540, 197);
+        identitySectionBorder.Size = new Size(540, 240);
         identitySectionBorder.TabIndex = 1;
         // 
         // identitySectionBody
@@ -295,6 +315,8 @@ partial class BasicCardEditorView
         identitySectionBody.Controls.Add(collectorInput);
         identitySectionBody.Controls.Add(oracleIdLabel);
         identitySectionBody.Controls.Add(oracleIdInput);
+        identitySectionBody.Controls.Add(multipartLabel);
+        identitySectionBody.Controls.Add(multipartInput);
         identitySectionBody.Dock = DockStyle.Fill;
         identitySectionBody.Location = new Point(1, 1);
         identitySectionBody.Name = "identitySectionBody";
@@ -406,6 +428,28 @@ partial class BasicCardEditorView
         oracleIdInput.TabIndex = 8;
         fieldToolTip.SetToolTip(oracleIdInput, "同一规则卡牌的不同印刷版本可共享；自制卡可留空");
         // 
+        // multipartLabel
+        // 
+        multipartLabel.ForeColor = Color.FromArgb(172, 183, 198);
+        multipartLabel.Location = new Point(25, 181);
+        multipartLabel.Name = "multipartLabel";
+        multipartLabel.Size = new Size(117, 30);
+        multipartLabel.TabIndex = 9;
+        multipartLabel.Text = "关联特征";
+        multipartLabel.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // multipartInput
+        // 
+        multipartInput.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        multipartInput.BackColor = Color.FromArgb(15, 19, 24);
+        multipartInput.BorderStyle = BorderStyle.FixedSingle;
+        multipartInput.ForeColor = Color.FromArgb(232, 236, 242);
+        multipartInput.Location = new Point(146, 181);
+        multipartInput.Name = "multipartInput";
+        multipartInput.PlaceholderText = "";
+        multipartInput.Size = new Size(238, 32);
+        multipartInput.TabIndex = 10;
+        // 
         // cardTypesSectionBorder
         // 
         cardTypesSectionBorder.BackColor = Color.FromArgb(62, 70, 82);
@@ -431,6 +475,14 @@ partial class BasicCardEditorView
         cardTypesSectionBody.Controls.Add(planeswalkerTypeToggle);
         cardTypesSectionBody.Controls.Add(sorceryTypeToggle);
         cardTypesSectionBody.Controls.Add(typeNote);
+        cardTypesSectionBody.Controls.Add(cardSupertypesLabel);
+        cardTypesSectionBody.Controls.Add(basicSupertypeToggle);
+        cardTypesSectionBody.Controls.Add(legendarySupertypeToggle);
+        cardTypesSectionBody.Controls.Add(ongoingSupertypeToggle);
+        cardTypesSectionBody.Controls.Add(snowSupertypeToggle);
+        cardTypesSectionBody.Controls.Add(worldSupertypeToggle);
+        cardTypesSectionBody.Controls.Add(cardSubtypesLabel);
+        cardTypesSectionBody.Controls.Add(cardSubtypesInput);
         cardTypesSectionBody.Dock = DockStyle.Fill;
         cardTypesSectionBody.Location = new Point(1, 1);
         cardTypesSectionBody.Name = "cardTypesSectionBody";
@@ -453,10 +505,10 @@ partial class BasicCardEditorView
         gameplaySectionBorder.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         gameplaySectionBorder.BackColor = Color.FromArgb(62, 70, 82);
         gameplaySectionBorder.Controls.Add(gameplaySectionBody);
-        gameplaySectionBorder.Location = new Point(907, 202);
+        gameplaySectionBorder.Location = new Point(907, 242);
         gameplaySectionBorder.Name = "gameplaySectionBorder";
         gameplaySectionBorder.Padding = new Padding(1);
-        gameplaySectionBorder.Size = new Size(540, 358);
+        gameplaySectionBorder.Size = new Size(540, 328);
         gameplaySectionBorder.TabIndex = 3;
         // 
         // gameplaySectionBody
@@ -833,6 +885,113 @@ partial class BasicCardEditorView
         noCharacteristicsLabel.Size = new Size(390, 66);
         noCharacteristicsLabel.TabIndex = 19;
         noCharacteristicsLabel.Text = "当前类别没有需要填写的力量、防御力、忠诚或布防数值。";
+        // 
+        // cardSupertypesLabel
+        // 
+        cardSupertypesLabel.ForeColor = Color.FromArgb(172, 183, 198);
+        cardSupertypesLabel.Location = new Point(22, 320);
+        cardSupertypesLabel.Name = "cardSupertypesLabel";
+        cardSupertypesLabel.Size = new Size(520, 30);
+        cardSupertypesLabel.TabIndex = 14;
+        cardSupertypesLabel.Text = "选择一个或多个超类别";
+        cardSupertypesLabel.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // basicSupertypeToggle
+        // 
+        basicSupertypeToggle.Appearance = Appearance.Button;
+        basicSupertypeToggle.BackColor = Color.FromArgb(15, 19, 24);
+        basicSupertypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
+        basicSupertypeToggle.FlatStyle = FlatStyle.Flat;
+        basicSupertypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
+        basicSupertypeToggle.Location = new Point(22, 360);
+        basicSupertypeToggle.Name = "basicSupertypeToggle";
+        basicSupertypeToggle.Size = new Size(72, 34);
+        basicSupertypeToggle.TabIndex = 15;
+        basicSupertypeToggle.Text = "基本";
+        basicSupertypeToggle.TextAlign = ContentAlignment.MiddleCenter;
+        basicSupertypeToggle.UseVisualStyleBackColor = false;
+        // 
+        // legendarySupertypeToggle
+        // 
+        legendarySupertypeToggle.Appearance = Appearance.Button;
+        legendarySupertypeToggle.BackColor = Color.FromArgb(15, 19, 24);
+        legendarySupertypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
+        legendarySupertypeToggle.FlatStyle = FlatStyle.Flat;
+        legendarySupertypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
+        legendarySupertypeToggle.Location = new Point(100, 360);
+        legendarySupertypeToggle.Name = "legendarySupertypeToggle";
+        legendarySupertypeToggle.Size = new Size(72, 34);
+        legendarySupertypeToggle.TabIndex = 16;
+        legendarySupertypeToggle.Text = "传奇";
+        legendarySupertypeToggle.TextAlign = ContentAlignment.MiddleCenter;
+        legendarySupertypeToggle.UseVisualStyleBackColor = false;
+        // 
+        // ongoingSupertypeToggle
+        // 
+        ongoingSupertypeToggle.Appearance = Appearance.Button;
+        ongoingSupertypeToggle.BackColor = Color.FromArgb(15, 19, 24);
+        ongoingSupertypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
+        ongoingSupertypeToggle.FlatStyle = FlatStyle.Flat;
+        ongoingSupertypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
+        ongoingSupertypeToggle.Location = new Point(178, 360);
+        ongoingSupertypeToggle.Name = "ongoingSupertypeToggle";
+        ongoingSupertypeToggle.Size = new Size(72, 34);
+        ongoingSupertypeToggle.TabIndex = 17;
+        ongoingSupertypeToggle.Text = "长效";
+        ongoingSupertypeToggle.TextAlign = ContentAlignment.MiddleCenter;
+        ongoingSupertypeToggle.UseVisualStyleBackColor = false;
+        // 
+        // snowSupertypeToggle
+        // 
+        snowSupertypeToggle.Appearance = Appearance.Button;
+        snowSupertypeToggle.BackColor = Color.FromArgb(15, 19, 24);
+        snowSupertypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
+        snowSupertypeToggle.FlatStyle = FlatStyle.Flat;
+        snowSupertypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
+        snowSupertypeToggle.Location = new Point(256, 360);
+        snowSupertypeToggle.Name = "snowSupertypeToggle";
+        snowSupertypeToggle.Size = new Size(72, 34);
+        snowSupertypeToggle.TabIndex = 18;
+        snowSupertypeToggle.Text = "雪境";
+        snowSupertypeToggle.TextAlign = ContentAlignment.MiddleCenter;
+        snowSupertypeToggle.UseVisualStyleBackColor = false;
+        // 
+        // worldSupertypeToggle
+        // 
+        worldSupertypeToggle.Appearance = Appearance.Button;
+        worldSupertypeToggle.BackColor = Color.FromArgb(15, 19, 24);
+        worldSupertypeToggle.FlatAppearance.BorderColor = Color.FromArgb(62, 70, 82);
+        worldSupertypeToggle.FlatStyle = FlatStyle.Flat;
+        worldSupertypeToggle.ForeColor = Color.FromArgb(172, 183, 198);
+        worldSupertypeToggle.Location = new Point(334, 360);
+        worldSupertypeToggle.Name = "worldSupertypeToggle";
+        worldSupertypeToggle.Size = new Size(72, 34);
+        worldSupertypeToggle.TabIndex = 19;
+        worldSupertypeToggle.Text = "普世";
+        worldSupertypeToggle.TextAlign = ContentAlignment.MiddleCenter;
+        worldSupertypeToggle.UseVisualStyleBackColor = false;
+        // 
+        // cardSubtypesLabel
+        // 
+        cardSubtypesLabel.ForeColor = Color.FromArgb(172, 183, 198);
+        cardSubtypesLabel.Location = new Point(22, 420);
+        cardSubtypesLabel.Name = "cardSubtypesLabel";
+        cardSubtypesLabel.Size = new Size(520, 30);
+        cardSubtypesLabel.TabIndex = 20;
+        cardSubtypesLabel.Text = "输入副类别";
+        cardSubtypesLabel.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // cardSubtypesInput
+        // 
+        cardSubtypesInput.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        cardSubtypesInput.BackColor = Color.FromArgb(15, 19, 24);
+        cardSubtypesInput.BorderStyle = BorderStyle.FixedSingle;
+        cardSubtypesInput.ForeColor = Color.FromArgb(232, 236, 242);
+        cardSubtypesInput.Location = new Point(22, 465);
+        cardSubtypesInput.Name = "cardSubtypesInput";
+        cardSubtypesInput.PlaceholderText = "";
+        cardSubtypesInput.Size = new Size(370, 36);
+        cardSubtypesInput.TabIndex = 21;
         // 
         // rulesSectionBorder
         // 

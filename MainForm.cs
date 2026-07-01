@@ -51,6 +51,9 @@ internal sealed partial class MainForm : Form
     private TextBox oracleIdInput =>
         basicEditorView.OracleIdInput;
 
+    private TextBox multipartInput =>
+        basicEditorView.MultipartInput;
+
     private TextBox setCodeInput =>
         basicEditorView.SetCodeInput;
 
@@ -59,6 +62,9 @@ internal sealed partial class MainForm : Form
 
     private TextBox manaCostInput =>
         basicEditorView.ManaCostInput;
+
+    private TextBox subtypesInput =>
+        basicEditorView.SubtypesInput;
 
     private NumericUpDown powerInput =>
         basicEditorView.PowerInput;
@@ -440,10 +446,12 @@ internal sealed partial class MainForm : Form
                  {
                      cardNameInput,
                      oracleIdInput,
+                     multipartInput,
                      setCodeInput,
                      collectorInput,
                      manaCostInput,
-                     rulesTextInput
+                     rulesTextInput,
+                     subtypesInput
                  })
             input.TextChanged += (_, _) => MarkCardDirty();
 
@@ -640,7 +648,9 @@ internal sealed partial class MainForm : Form
         oracleIdInput.Text = card.OracleId;
         setCodeInput.Text = card.SetCode;
         collectorInput.Text = card.CollectorNumber;
+        multipartInput.Text = card.MultipartID;
         manaCostInput.Text = card.ManaCost;
+        subtypesInput.Text = card.Subtypes;
         powerInput.Value = Math.Clamp(card.Power, -999, 999);
         toughnessInput.Value = Math.Clamp(card.Toughness, -999, 999);
         loyaltyInput.Value = Math.Clamp(card.Loyalty, -999, 999);
@@ -649,6 +659,7 @@ internal sealed partial class MainForm : Form
         scriptPathInput.Text = card.ScriptPath;
 
         basicEditorView.SelectedTypes = card.Types;
+        basicEditorView.SelectedSupertypes = card.Supertypes;
 
         preservedEffects.Clear();
         preservedEffects.AddRange(card.Effects.Select(effect => effect.Clone()));
@@ -781,7 +792,10 @@ internal sealed partial class MainForm : Form
             ScriptPath = scriptPathInput.Text.Replace('\\', '/'),
             RulesText = rulesTextInput.Text,
             Enabled = true,
-            Types = types
+            Types = types,
+            Supertypes = ReadSupertypes(),
+            Subtypes = subtypesInput.Text,
+            MultipartID = multipartInput.Text
         };
 
         card.Effects.AddRange(preservedEffects.Select(effect => effect.Clone()));
@@ -871,7 +885,9 @@ internal sealed partial class MainForm : Form
         oracleIdInput.Clear();
         setCodeInput.Clear();
         collectorInput.Clear();
+        multipartInput.Clear();
         manaCostInput.Clear();
+        subtypesInput.Clear();
         powerInput.Value = 0;
         toughnessInput.Value = 0;
         loyaltyInput.Value = 0;
@@ -895,6 +911,11 @@ internal sealed partial class MainForm : Form
     private CardTypeFlags ReadTypes()
     {
         return basicEditorView.SelectedTypes;
+    }
+
+    private CardSupertypeFlags ReadSupertypes()
+    {
+        return basicEditorView.SelectedSupertypes;
     }
 
     private void UpdateStatFields(
