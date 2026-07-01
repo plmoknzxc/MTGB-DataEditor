@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-07-02 GitHub 说明与 Schema V2 文档同步
+
+- 更新 README，补齐当前 GitHub 首页说明。
+- 明确当前数据库 Schema 为 `2`，并说明旧库需要迁移或重建。
+- 补充超类别 `supertype_flags` 与副类别 `subtypes` 的说明。
+- 补充 `multipart` 关联表说明，并标注其仍是关联原型，不是完整双面牌系统。
+- 补充法术力插入菜单、卡图预览、Lua 脚本、提示文本和资源目录规则。
+- 明确 `card_effects` 为旧版效果数据，当前 UI 不直接编辑但会尽量保留。
+
+## 2026-07-01 超类别、副类别与 multipart 关联原型
+
+- 新增 `CardSupertypeFlags`：基本、传奇、长效、雪境、普世。
+- `cards` 表新增 `supertype_flags` 与 `subtypes` 字段。
+- 新增 `multipart(card_key, child_key)` 表，用于记录副特征、冒险、双面牌正反面等关联。
+- 基础编辑界面新增“关联特征”“超类别”“副类别”输入。
+- 保存和读取流程接入超类别、副类别和一个 multipart 关联目标。
+- 当前 multipart 仍为原型：未完成多关联、双向跳转、删除链清理和完整双面牌 UI。
+
 ## 2026-06-22 界面导航与复合类别数值
 
 - 移除 WinForms 原生标签控件，改成全深色页面导航，消除标签栏右侧白色区域。

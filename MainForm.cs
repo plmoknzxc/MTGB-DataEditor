@@ -364,7 +364,7 @@ internal sealed partial class MainForm : Form
         };
         scriptPathInput.Dock = DockStyle.Fill;
         scriptPathInput.Margin = new Padding(0, 5, 0, 5);
-        scriptPathInput.PlaceholderText = "相对于 MTGB 根目录，例如 脚本/SOS/m65.lua";
+        scriptPathInput.PlaceholderText = "相对于 MTGB 根目录，例如 Scripts/SOS/m65.lua";
 
         var buttons = new FlowLayoutPanel
         {
@@ -389,7 +389,7 @@ internal sealed partial class MainForm : Form
         var runtimeNote = new Label
         {
             Dock = DockStyle.Fill,
-            Text = "脚本按 MTGB/脚本/<系列>/m<卡图编号>.lua 保存，script_path 记录相对 MTGB 根目录的路径。",
+            Text = "脚本按 MTGB/Scripts/<系列>/m<卡图编号>.lua 保存，script_path 记录相对 MTGB 根目录的路径。",
             ForeColor = EditorTheme.Muted,
             Font = new Font("Microsoft YaHei UI", 8.6f),
             TextAlign = ContentAlignment.MiddleLeft,
@@ -981,7 +981,7 @@ internal sealed partial class MainForm : Form
 
         string databaseDirectory = Path.GetFullPath(database.DirectoryPath);
         string? directoryName = Path.GetFileName(databaseDirectory);
-        if (directoryName is "数据库" or "Databases" or "Database")
+        if (directoryName is "数据库" or "Databases" or "Database" or "CardDatabases")
             return Path.GetDirectoryName(databaseDirectory) ?? databaseDirectory;
 
         return databaseDirectory;
@@ -989,12 +989,18 @@ internal sealed partial class MainForm : Form
 
     private string CardImagesDirectoryPath()
     {
-        return Path.Combine(ContentRootDirectoryPath(), "卡图");
+        string root = ContentRootDirectoryPath();
+        string english = Path.Combine(root, "CardImages");
+        string chinese = Path.Combine(root, "卡图");
+        return Directory.Exists(chinese) && !Directory.Exists(english) ? chinese : english;
     }
 
     private string ScriptsDirectoryPath()
     {
-        return Path.Combine(ContentRootDirectoryPath(), "脚本");
+        string root = ContentRootDirectoryPath();
+        string english = Path.Combine(root, "Scripts");
+        string chinese = Path.Combine(root, "脚本");
+        return Directory.Exists(chinese) && !Directory.Exists(english) ? chinese : english;
     }
 
     private string CurrentScriptDirectoryPath()
@@ -1206,7 +1212,7 @@ internal sealed partial class MainForm : Form
 
     private string DefaultScriptStoredPath()
     {
-        return $"脚本/{CurrentSetDirectoryName()}/{DefaultScriptFileName()}";
+        return $"Scripts/{CurrentSetDirectoryName()}/{DefaultScriptFileName()}";
     }
 
     private string DefaultScriptFileName()
